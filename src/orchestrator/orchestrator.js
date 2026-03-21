@@ -263,7 +263,7 @@ async function runReviewRound(reviewerName, config, content, { kind, chain, spec
     config, reviewerName, promptFile,
     taskDescription: chain.task?.user_request,
     specRef: specRef || chain.task?.spec_ref,
-    cwd, sessionId,
+    cwd, sessionId, stream: true,
   });
 }
 

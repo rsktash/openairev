@@ -18,7 +18,7 @@ const EXCLUDE_PATTERNS = [
  * Uses minimal context (1 line) and excludes irrelevant files.
  */
 export function getDiff(ref, { context = 1, excludes = EXCLUDE_PATTERNS } = {}) {
-  const excludeArgs = excludes.flatMap(p => ['--', `:!${p}`]);
+  const excludeArgs = ['--', ...excludes.map(p => `:!${p}`)];
   const contextArgs = [`-U${context}`];
 
   if (ref) {

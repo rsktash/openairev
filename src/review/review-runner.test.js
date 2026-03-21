@@ -1,5 +1,8 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
+import { existsSync, readdirSync, readFileSync, mkdtempSync, rmSync, mkdirSync, writeFileSync } from 'fs';
+import { join } from 'path';
+import { tmpdir } from 'os';
 
 // Test verdict extraction logic (mirrors the function in review-runner.js)
 
@@ -75,5 +78,44 @@ describe('verdict extraction', () => {
   it('returns null for invalid status in raw JSON', () => {
     const verdict = extractVerdict({ raw: '{"status": "unknown_status"}' });
     assert.equal(verdict, null);
+  });
+});
+
+describe('reviewer output logging', () => {
+  function logReviewerOutput(rawOutput, reviewerName, cwd) {
+    if (!rawOutput) return;
+    try {
+      const logDir = join(cwd, '.openairev', 'logs');
+      mkdirSync(logDir, { recursive: true });
+      const ts = new Date().toISOString().replace(/[:.]/g, '-');
+      writeFileSync(join(logDir, `review-${reviewerName}-${ts}.log`), rawOutput);
+    } catch {
+      // non-critical
+    }
+  }
+
+  it('writes reviewer output to log file', () => {
+    const tmp = mkdtempSync(join(tmpdir(), 'orev-log-'));
+    try {
+      logReviewerOutput('raw reviewer thinking here', 'codex', tmp);
+      const logDir = join(tmp, '.openairev', 'logs');
+      assert.ok(existsSync(logDir));
+      const files = readdirSync(logDir);
+      assert.equal(files.length, 1);
+      assert.ok(files[0].startsWith('review-codex-'));
+      assert.equal(readFileSync(join(logDir, files[0]), 'utf-8'), 'raw reviewer thinking here');
+    } finally {
+      rmSync(tmp, { recursive: true, force: true });
+    }
+  });
+
+  it('skips logging when output is empty', () => {
+    const tmp = mkdtempSync(join(tmpdir(), 'orev-log-'));
+    try {
+      logReviewerOutput('', 'codex', tmp);
+      assert.ok(!existsSync(join(tmp, '.openairev', 'logs')));
+    } finally {
+      rmSync(tmp, { recursive: true, force: true });
+    }
   });
 });

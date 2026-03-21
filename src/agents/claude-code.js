@@ -38,9 +38,9 @@ export class ClaudeCodeAdapter {
       if (!this.sessionName && parsed.session_id) {
         this.sessionName = parsed.session_id;
       }
-      return parsed;
+      return { ...parsed, raw_output: result.stdout };
     } catch {
-      return { raw: result.stdout, error: 'Failed to parse JSON output' };
+      return { raw: result.stdout, raw_output: result.stdout, error: 'Failed to parse JSON output' };
     }
   }
 }

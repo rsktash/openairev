@@ -14,7 +14,7 @@ const config = loadConfig(cwd);
 
 const server = new McpServer({
   name: 'openairev',
-  version: '0.2.4',
+  version: '0.3.0',
 });
 
 server.tool(

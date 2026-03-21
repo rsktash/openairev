@@ -1,3 +1,5 @@
+import { mkdirSync, writeFileSync } from 'fs';
+import { join } from 'path';
 import { createAdapter } from '../agents/registry.js';
 import { stageInput, buildInputReference } from './input-stager.js';
 import { loadPromptFile } from './prompt-loader.js';
@@ -10,6 +12,7 @@ export async function runReview(content, {
   specRef,
   cwd = process.cwd(),
   sessionId = null,
+  stream = false,
 }) {
   const adapter = createAdapter(reviewerName, config, { cwd });
 
@@ -37,17 +40,34 @@ export async function runReview(content, {
     schemaFile,
     continueSession: !!sessionId,
     sessionName: sessionId ? undefined : `review-${Date.now()}`,
+    stream: stream ? reviewerName : false,
   });
 
   const verdict = extractVerdict(result);
   const executorFeedback = buildExecutorFeedback(verdict, cwd);
+  const rawOutput = result?.raw_output || result?.raw || '';
+
+  logReviewerOutput(rawOutput, reviewerName, cwd);
 
   return {
     reviewer: reviewerName,
     verdict,
     executor_feedback: executorFeedback,
+    reviewer_output: rawOutput,
     session_id: adapter.sessionName || adapter.sessionId,
   };
+}
+
+function logReviewerOutput(rawOutput, reviewerName, cwd) {
+  if (!rawOutput) return;
+  try {
+    const logDir = join(cwd, '.openairev', 'logs');
+    mkdirSync(logDir, { recursive: true });
+    const ts = new Date().toISOString().replace(/[:.]/g, '-');
+    writeFileSync(join(logDir, `review-${reviewerName}-${ts}.log`), rawOutput);
+  } catch {
+    // non-critical, don't fail the review
+  }
 }
 
 function buildExecutorFeedback(verdict, cwd) {

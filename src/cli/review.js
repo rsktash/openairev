@@ -25,8 +25,8 @@ export async function reviewCommand(options) {
   const skipPlan = options.once || options.quick || !options.plan;
 
   console.log(chalk.bold(`\nOpenAIRev\n`));
-  console.log(`  Executor:    ${chalk.cyan(executor)}`);
   console.log(`  Reviewer:    ${chalk.cyan(reviewerName)}`);
+  console.log(`  Executor:    ${chalk.dim(executor)}`);
   console.log(`  Max rounds:  ${chalk.cyan(maxRounds)}`);
 
   if (options.once) {
@@ -62,7 +62,7 @@ export async function reviewCommand(options) {
     }
     try {
       console.log(chalk.dim('Starting review...\n'));
-      const review = await runReview(diff, { config, reviewerName, cwd });
+      const review = await runReview(diff, { config, reviewerName, cwd, stream: true });
 
       const session = createSession({ executor, reviewer: reviewerName, diff_ref: options.diff || 'auto' });
       session.iterations.push({ round: 1, review, timestamp: new Date().toISOString() });

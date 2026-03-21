@@ -1,6 +1,7 @@
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import { exec } from './exec-helper.js';
+import { createCodexSummarizer } from './stream-summarizer.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -15,7 +16,7 @@ export class CodexAdapter {
     this.sessionId = id;
   }
 
-  async run(prompt, { useSchema = false, schemaFile = 'verdict-schema.json', continueSession = false, sessionName = null } = {}) {
+  async run(prompt, { useSchema = false, schemaFile = 'verdict-schema.json', continueSession = false, sessionName = null, stream = false } = {}) {
     const args = ['exec'];
 
     if (continueSession && this.sessionId) {
@@ -30,7 +31,8 @@ export class CodexAdapter {
       args.push('--output-schema', schemaPath);
     }
 
-    const result = await exec(this.cmd, args);
+    const onData = stream ? createCodexSummarizer({ reviewerName: typeof stream === 'string' ? stream : 'codex' }) : undefined;
+    const result = await exec(this.cmd, args, { onData });
 
     try {
       const lines = result.stdout.trim().split('\n');
@@ -62,15 +64,15 @@ export class CodexAdapter {
 
       if (agentMessage) {
         try {
-          return { result: JSON.parse(agentMessage), session_id: this.sessionId };
+          return { result: JSON.parse(agentMessage), raw_output: result.stdout, session_id: this.sessionId };
         } catch {
-          return { result: agentMessage, session_id: this.sessionId };
+          return { result: agentMessage, raw_output: result.stdout, session_id: this.sessionId };
         }
       }
 
-      return { raw: result.stdout, session_id: this.sessionId };
+      return { raw: result.stdout, raw_output: result.stdout, session_id: this.sessionId };
     } catch {
-      return { raw: result.stdout, error: 'Failed to parse output' };
+      return { raw: result.stdout, raw_output: result.stdout, error: 'Failed to parse output' };
     }
   }
 }
