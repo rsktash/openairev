@@ -22,17 +22,27 @@ server.tool(
   'TRIGGER: Use this tool when the user says "review", "review my code", "get a review", "check my changes", "openairev", or asks for independent/cross-model code review. Sends current code changes to a DIFFERENT AI model for independent review. Returns a structured verdict with critical issues, test gaps, risk level, confidence score, and repair instructions.',
   {
     executor: z.string().optional().describe('Which agent wrote the code (claude_code or codex). If you are Claude Code, set this to "claude_code". If you are Codex, set this to "codex".'),
-    diff: z.string().optional().describe('The diff or code to review. If omitted, auto-detects from git.'),
+    diff: z.string().optional().describe('The diff to review. IMPORTANT: Pass only the diff for files YOU changed, not the entire repo. Use `git diff HEAD -- file1 file2` to scope it. If omitted, auto-detects from git which may be too large.'),
+    diff_cmd: z.string().optional().describe('The git command used to get the diff, e.g. "git diff HEAD -- src/auth.ts src/routes.ts". If provided instead of diff, the server will run this command to get the diff.'),
     task_description: z.string().optional().describe('What the code is supposed to do. Used for requirement checking.'),
   },
-  async ({ executor, diff, task_description }) => {
+  async ({ executor, diff, diff_cmd, task_description }) => {
     const execAgent = executor || Object.keys(config.agents || {}).find(a => config.agents[a].available);
     const reviewerName = getReviewer(config, execAgent);
     if (!reviewerName) {
       return { content: [{ type: 'text', text: `No reviewer configured for executor "${execAgent}"` }] };
     }
 
-    const diffContent = diff || getDiff();
+    let diffContent = diff;
+    if (!diffContent && diff_cmd) {
+      try {
+        const { execSync } = await import('child_process');
+        diffContent = execSync(diff_cmd, { encoding: 'utf-8', maxBuffer: 10 * 1024 * 1024, cwd });
+      } catch (e) {
+        return { content: [{ type: 'text', text: `diff_cmd failed: ${e.message}` }] };
+      }
+    }
+    if (!diffContent) diffContent = getDiff();
     if (!diffContent?.trim()) {
       return { content: [{ type: 'text', text: 'No changes found to review.' }] };
     }

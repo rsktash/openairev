@@ -241,6 +241,7 @@ This project uses OpenAIRev for independent AI code review. When the user asks t
 
 - You are the **executor**. Set \`executor\` to \`"claude_code"\` when calling the tool.
 - A different AI model will review your code independently.
+- **IMPORTANT**: Pass only the diff for files you changed using \`diff_cmd\`, e.g. \`"git diff HEAD -- src/auth.ts src/routes.ts"\`. Do NOT let it auto-detect — the full repo diff may be too large.
 - When you receive review feedback, treat it as **peer review** — use your judgment, don't blindly apply every suggestion.
 - The review verdict includes \`critical_issues\`, \`repair_instructions\`, and a \`confidence\` score. Focus on high-confidence critical issues.
 ${marker}
@@ -300,6 +301,7 @@ This project uses OpenAIRev for independent AI code review. When the user asks t
 
 - You are the **executor**. Set \`executor\` to \`"codex"\` when calling the tool.
 - A different AI model will review your code independently.
+- **IMPORTANT**: Pass only the diff for files you changed using \`diff_cmd\`, e.g. \`"git diff HEAD -- src/auth.ts src/routes.ts"\`. Do NOT let it auto-detect — the full repo diff may be too large.
 - When you receive review feedback, treat it as **peer review** — use your judgment, don't blindly apply every suggestion.
 - The review verdict includes \`critical_issues\`, \`repair_instructions\`, and a \`confidence\` score. Focus on high-confidence critical issues.
 ${marker}
