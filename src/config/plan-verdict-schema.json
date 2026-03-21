@@ -39,6 +39,6 @@
       "items": { "type": "string" }
     }
   },
-  "required": ["status", "critical_issues", "risk_level", "confidence"],
+  "required": ["status", "critical_issues", "missing_requirements", "sequencing_issues", "risks", "risk_level", "confidence", "repair_instructions", "false_positives_reconsidered"],
   "additionalProperties": false
 }

@@ -46,7 +46,12 @@ export class CodexAdapter {
           if (event.type === 'item.completed' && event.item?.type === 'agent_message') {
             agentMessage = event.item.text;
           }
-        } catch {
+          if (event.type === 'error' || event.type === 'turn.failed') {
+            const errMsg = event.message || event.error?.message || JSON.stringify(event);
+            throw new Error(`Codex error: ${errMsg}`);
+          }
+        } catch (e) {
+          if (e.message?.startsWith('Codex error:')) throw e;
           // skip non-JSON lines
         }
       }
