@@ -31,8 +31,11 @@ export class CodexAdapter {
       args.push('--output-schema', schemaPath);
     }
 
-    const onData = stream ? createCodexSummarizer({ reviewerName: typeof stream === 'string' ? stream : 'codex' }) : undefined;
-    const result = await exec(this.cmd, args, { onData });
+    const summarizer = stream ? createCodexSummarizer({
+      reviewerName: stream.reviewerName || 'codex',
+      tty: stream.tty !== false,
+    }) : undefined;
+    const result = await exec(this.cmd, args, { onData: summarizer });
 
     try {
       const lines = result.stdout.trim().split('\n');
@@ -62,15 +65,17 @@ export class CodexAdapter {
         this.sessionId = sessionId;
       }
 
+      const progress = summarizer?.getProgress() || [];
+
       if (agentMessage) {
         try {
-          return { result: JSON.parse(agentMessage), raw_output: result.stdout, session_id: this.sessionId };
+          return { result: JSON.parse(agentMessage), raw_output: result.stdout, progress, session_id: this.sessionId };
         } catch {
-          return { result: agentMessage, raw_output: result.stdout, session_id: this.sessionId };
+          return { result: agentMessage, raw_output: result.stdout, progress, session_id: this.sessionId };
         }
       }
 
-      return { raw: result.stdout, raw_output: result.stdout, session_id: this.sessionId };
+      return { raw: result.stdout, raw_output: result.stdout, progress, session_id: this.sessionId };
     } catch {
       return { raw: result.stdout, raw_output: result.stdout, error: 'Failed to parse output' };
     }

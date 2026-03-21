@@ -52,6 +52,7 @@ server.tool(
       reviewerName,
       taskDescription: task_description,
       cwd,
+      stream: 'silent',
     });
 
     const session = createSession({ executor: execAgent, reviewer: reviewerName });
@@ -60,8 +61,16 @@ server.tool(
     session.status = 'completed';
     saveSession(session, cwd);
 
-    const text = review.executor_feedback || JSON.stringify(review.verdict || review, null, 2);
-    return { content: [{ type: 'text', text }] };
+    const parts = [];
+
+    if (review.progress?.length > 0) {
+      parts.push({ type: 'text', text: `Review progress:\n${review.progress.map(l => `  ${l}`).join('\n')}` });
+    }
+
+    const feedback = review.executor_feedback || JSON.stringify(review.verdict || review, null, 2);
+    parts.push({ type: 'text', text: feedback });
+
+    return { content: parts };
   }
 );
 

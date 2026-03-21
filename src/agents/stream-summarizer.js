@@ -2,51 +2,70 @@ import chalk from 'chalk';
 
 /**
  * Creates a summarizer callback for Codex NDJSON event streams.
- * Prints concise progress lines to stderr instead of raw JSON.
+ * tty=true: prints colored progress to stderr.
+ * tty=false: collects plain-text progress lines silently.
+ * Both modes always collect lines for the final summary.
  */
-export function createCodexSummarizer({ reviewerName } = {}) {
+export function createCodexSummarizer({ reviewerName, tty = true } = {}) {
   const seenFiles = new Set();
+  const progressLines = [];
   let buffer = '';
   let started = false;
 
-  return (chunk) => {
+  const summarizer = (chunk) => {
     if (!started) {
       started = true;
-      if (reviewerName) log(chalk.cyan(`  reviewer: ${reviewerName}`));
+      if (reviewerName) emit(`reviewer: ${reviewerName}`, 'cyan');
     }
     buffer += chunk;
     const lines = buffer.split('\n');
-    buffer = lines.pop(); // keep incomplete last line
+    buffer = lines.pop();
 
     for (const line of lines) {
       if (!line.trim()) continue;
       try {
         const event = JSON.parse(line);
-        summarizeCodexEvent(event, seenFiles);
+        summarizeCodexEvent(event, seenFiles, { emit });
       } catch {
         // skip non-JSON
       }
     }
   };
+
+  summarizer.getProgress = () => progressLines;
+
+  function emit(msg, color) {
+    if (progressLines.length < 200) progressLines.push(msg);
+    if (tty) {
+      const colorFn = color === 'cyan' ? chalk.cyan
+        : color === 'green' ? chalk.green
+        : color === 'yellow' ? chalk.yellow
+        : color === 'red' ? chalk.red
+        : chalk.dim;
+      process.stderr.write(`  ${colorFn(msg)}\n`);
+    }
+  }
+
+  return summarizer;
 }
 
-function summarizeCodexEvent(event, seenFiles) {
+function summarizeCodexEvent(event, seenFiles, { emit }) {
   const type = event.type;
 
   if (type === 'thread.started') {
-    log(chalk.dim(`  session: ${event.thread_id}`));
+    emit(`session: ${event.thread_id}`);
   }
 
   if (type === 'item.started' && event.item?.type === 'todo_list') {
     const items = event.item.items?.map(i => i.text) || [];
-    log(chalk.cyan('  plan:'));
-    for (const item of items) log(chalk.dim(`    • ${item}`));
+    emit('plan:', 'cyan');
+    for (const item of items) emit(`  • ${item}`);
   }
 
   if (type === 'item.completed' && event.item?.type === 'todo_list') {
     const items = event.item.items || [];
     const done = items.filter(i => i.completed).length;
-    log(chalk.dim(`  progress: ${done}/${items.length} tasks done`));
+    emit(`progress: ${done}/${items.length} tasks done`);
   }
 
   if (type === 'item.started' && event.item?.type === 'command_execution') {
@@ -55,10 +74,10 @@ function summarizeCodexEvent(event, seenFiles) {
     const file = extractFileFromCmd(cmd);
     if (file && !seenFiles.has(file)) {
       seenFiles.add(file);
-      log(chalk.dim(`  reading: ${file}`));
+      emit(`reading: ${file}`);
     } else if (!file) {
       const short = summarizeCmd(cmd);
-      if (short) log(chalk.dim(`  running: ${short}`));
+      if (short) emit(`running: ${short}`);
     }
   }
 
@@ -66,27 +85,27 @@ function summarizeCodexEvent(event, seenFiles) {
     const exit = event.item.exit_code;
     if (exit !== null && exit !== 0) {
       const cmd = summarizeCmd(event.item.command || '');
-      log(chalk.yellow(`  command failed (exit ${exit}): ${cmd}`));
+      emit(`command failed (exit ${exit}): ${cmd}`, 'yellow');
     }
   }
 
   if (type === 'item.started' && event.item?.type === 'agent_message') {
-    log(chalk.cyan('  generating verdict...'));
+    emit('generating verdict...', 'cyan');
   }
 
   if (type === 'item.completed' && event.item?.type === 'agent_message') {
-    log(chalk.green('  verdict ready'));
+    emit('verdict ready', 'green');
   }
 
   if (type === 'turn.completed' && event.usage) {
     const { input_tokens, output_tokens } = event.usage;
     const total = input_tokens + output_tokens;
-    log(chalk.dim(`  tokens: ${fmt(total)} total (${fmt(input_tokens)} in / ${fmt(output_tokens)} out)`));
+    emit(`tokens: ${fmt(total)} total (${fmt(input_tokens)} in / ${fmt(output_tokens)} out)`);
   }
 
   if (type === 'error' || type === 'turn.failed') {
     const msg = event.message || event.error?.message || 'unknown error';
-    log(chalk.red(`  error: ${msg}`));
+    emit(`error: ${msg}`, 'red');
   }
 }
 
@@ -117,8 +136,4 @@ function fmt(n) {
   if (n >= 1_000_000) return (n / 1_000_000).toFixed(1) + 'M';
   if (n >= 1_000) return (n / 1_000).toFixed(1) + 'k';
   return String(n);
-}
-
-function log(msg) {
-  process.stderr.write(msg + '\n');
 }
