@@ -4,6 +4,10 @@ Cross-model AI code reviewer and workflow orchestrator for AI-assisted coding. T
 
 OpenAIRev orchestrates AI coding agents (Claude Code, Codex CLI, and more) so that one model reviews another's output. You choose which models pair up. The defaults are opinionated but fully configurable — including self-review if that's what you want.
 
+<p align="center">
+  <img src="docs/architecture.svg" alt="OpenAIRev architecture — cross-model review cycle" width="680" />
+</p>
+
 ## Install
 
 ```bash
