@@ -16,12 +16,21 @@
     "test": "node --test src/**/*.test.js"
   },
   "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.27.1",
+    "chalk": "^5.4.1",
     "commander": "^13.1.0",
     "inquirer": "^12.6.0",
-    "yaml": "^2.7.1",
-    "chalk": "^5.4.1"
+    "yaml": "^2.7.1"
   },
-  "keywords": ["ai", "code-review", "claude", "codex", "mcp", "cross-model", "reviewer"],
+  "keywords": [
+    "ai",
+    "code-review",
+    "claude",
+    "codex",
+    "mcp",
+    "cross-model",
+    "reviewer"
+  ],
   "license": "MIT",
   "repository": {
     "type": "git",
