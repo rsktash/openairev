@@ -223,29 +223,12 @@ function copyIfMissing(src, dest) {
 
 /**
  * Set up Claude Code integration:
- * - Add MCP server to .claude/settings.json
+ * - Add MCP server to .mcp.json (project-level MCP config)
  * - Append instructions to CLAUDE.md
  */
 function setupClaudeCode(cwd) {
-  // MCP server config
-  const claudeDir = join(cwd, '.claude');
-  const settingsPath = join(claudeDir, 'settings.json');
-
-  mkdirSync(claudeDir, { recursive: true });
-
-  let settings = {};
-  if (existsSync(settingsPath)) {
-    try { settings = JSON.parse(readFileSync(settingsPath, 'utf-8')); } catch { /* start fresh */ }
-  }
-
-  if (!settings.mcpServers) settings.mcpServers = {};
-  settings.mcpServers.openairev = {
-    command: 'node',
-    args: [MCP_SERVER_PATH],
-  };
-
-  writeFileSync(settingsPath, JSON.stringify(settings, null, 2));
-  console.log(`${chalk.green('✓')} MCP server added to .claude/settings.json`);
+  // MCP server config — .mcp.json in project root
+  setupMcpJson(cwd);
 
   // CLAUDE.md instructions
   const claudeMdPath = join(cwd, 'CLAUDE.md');
@@ -276,10 +259,37 @@ ${marker}
 }
 
 /**
+ * Add openairev MCP server to .mcp.json in project root.
+ * This is the standard project-level MCP config used by Claude Code and Codex.
+ */
+function setupMcpJson(cwd) {
+  const mcpPath = join(cwd, '.mcp.json');
+
+  let mcpConfig = {};
+  if (existsSync(mcpPath)) {
+    try { mcpConfig = JSON.parse(readFileSync(mcpPath, 'utf-8')); } catch { /* start fresh */ }
+  }
+
+  if (!mcpConfig.mcpServers) mcpConfig.mcpServers = {};
+
+  if (mcpConfig.mcpServers.openairev) return; // already configured
+
+  mcpConfig.mcpServers.openairev = {
+    command: 'node',
+    args: [MCP_SERVER_PATH],
+  };
+
+  writeFileSync(mcpPath, JSON.stringify(mcpConfig, null, 2) + '\n');
+  console.log(`${chalk.green('✓')} MCP server added to .mcp.json`);
+}
+
+/**
  * Set up Codex CLI integration:
+ * - Add MCP server to .mcp.json
  * - Add instructions to AGENTS.md
  */
 function setupCodex(cwd) {
+  setupMcpJson(cwd);
   const agentsMdPath = join(cwd, 'AGENTS.md');
   const marker = '<!-- openairev -->';
   const instructions = `

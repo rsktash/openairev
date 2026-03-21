@@ -187,9 +187,13 @@ The executor keeps full autonomy over what to fix.
 
 OpenAIRev includes an MCP server so both CLIs can trigger reviews as tool calls.
 
-### Add to Claude Code
+### Automatic Setup
 
-In your project's `.claude/settings.json` or `~/.claude/settings.json`:
+`openairev init` automatically adds the MCP server to your project's `.mcp.json`. Both Claude Code and Codex CLI read this file.
+
+### Manual Setup
+
+Add to `.mcp.json` in your project root:
 
 ```json
 {
@@ -202,15 +206,7 @@ In your project's `.claude/settings.json` or `~/.claude/settings.json`:
 }
 ```
 
-### Add to Codex CLI
-
-In `~/.codex/config.toml`:
-
-```toml
-[mcp_servers.openairev]
-command = "node"
-args = ["/path/to/openairev/src/mcp/mcp-server.js"]
-```
+Restart your agent CLI after adding.
 
 ### MCP Tools
 
