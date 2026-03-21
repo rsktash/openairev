@@ -1,0 +1,33 @@
+{
+  "name": "airev",
+  "version": "0.1.0",
+  "description": "Cross-model AI code reviewer — independent review for AI-assisted coding workflows",
+  "type": "module",
+  "bin": {
+    "airev": "./bin/airev.js"
+  },
+  "files": [
+    "bin/",
+    "src/",
+    "prompts/"
+  ],
+  "scripts": {
+    "start": "node bin/airev.js",
+    "test": "node --test src/**/*.test.js"
+  },
+  "dependencies": {
+    "commander": "^13.1.0",
+    "inquirer": "^12.6.0",
+    "yaml": "^2.7.1",
+    "chalk": "^5.4.1"
+  },
+  "keywords": ["ai", "code-review", "claude", "codex", "mcp", "cross-model", "reviewer"],
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/rsktash/openairev.git"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  }
+}

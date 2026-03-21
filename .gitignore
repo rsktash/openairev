@@ -1,0 +1,5 @@
+node_modules/
+.airev/credentials.json
+.airev/sessions/
+.DS_Store
+*.log
