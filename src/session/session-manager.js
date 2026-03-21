@@ -2,7 +2,7 @@ import { writeFileSync, readFileSync, existsSync, readdirSync, mkdirSync } from 
 import { join } from 'path';
 
 export function getSessionsDir(cwd = process.cwd()) {
-  return join(cwd, '.airev', 'sessions');
+  return join(cwd, '.openairev', 'sessions');
 }
 
 /**
@@ -51,14 +51,13 @@ export function listSessions(cwd = process.cwd(), limit = 20) {
 /**
  * Create a new session object.
  */
-export function createSession({ executor, reviewer, depth, diff_ref, task }) {
+export function createSession({ executor, reviewer, diff_ref, task }) {
   return {
-    id: `review_${Date.now()}`,
+    id: `review_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
     created: new Date().toISOString(),
     status: 'in_progress',
     executor,
     reviewer,
-    depth,
     diff_ref: diff_ref || null,
     task: task || null,
     iterations: [],

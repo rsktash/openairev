@@ -1,10 +1,10 @@
 {
-  "name": "airev",
-  "version": "0.1.0",
+  "name": "openairev",
+  "version": "0.2.0",
   "description": "Cross-model AI code reviewer — independent review for AI-assisted coding workflows",
   "type": "module",
   "bin": {
-    "airev": "./bin/airev.js"
+    "openairev": "./bin/openairev.js"
   },
   "files": [
     "bin/",
@@ -12,7 +12,7 @@
     "prompts/"
   ],
   "scripts": {
-    "start": "node bin/airev.js",
+    "start": "node bin/openairev.js",
     "test": "node --test src/**/*.test.js"
   },
   "dependencies": {

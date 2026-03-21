@@ -1,42 +1,37 @@
-import { execFile } from 'child_process';
-import { readFileSync } from 'fs';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
+import { exec } from './exec-helper.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const VERDICT_SCHEMA_PATH = join(__dirname, '../config/verdict-schema.json');
 
 export class CodexAdapter {
   constructor(options = {}) {
     this.cmd = options.cmd || 'codex';
+    this.cwd = options.cwd || process.cwd();
     this.sessionId = null;
   }
 
-  /**
-   * Run a single review pass. Returns parsed output.
-   */
-  async run(prompt, { input, useSchema = false, continueSession = false } = {}) {
+  restoreSession(id) {
+    this.sessionId = id;
+  }
+
+  async run(prompt, { useSchema = false, schemaFile = 'verdict-schema.json', continueSession = false, sessionName = null } = {}) {
     const args = ['exec'];
 
     if (continueSession && this.sessionId) {
       args.push('resume', this.sessionId);
     }
 
-    // Prepend input to prompt if provided and this is a fresh session
-    const fullPrompt = input && !continueSession
-      ? `${prompt}\n\n--- DIFF ---\n${input}`
-      : prompt;
-
-    args.push(fullPrompt);
+    args.push(prompt);
     args.push('--json');
 
     if (useSchema) {
-      args.push('--output-schema', VERDICT_SCHEMA_PATH);
+      const schemaPath = join(__dirname, '../config', schemaFile);
+      args.push('--output-schema', schemaPath);
     }
 
     const result = await exec(this.cmd, args);
 
-    // Parse NDJSON output — find the last item.completed or turn.completed
     try {
       const lines = result.stdout.trim().split('\n');
       let agentMessage = null;
@@ -60,7 +55,6 @@ export class CodexAdapter {
         this.sessionId = sessionId;
       }
 
-      // Try to parse agent message as JSON (for schema-enforced output)
       if (agentMessage) {
         try {
           return { result: JSON.parse(agentMessage), session_id: this.sessionId };
@@ -74,42 +68,4 @@ export class CodexAdapter {
       return { raw: result.stdout, error: 'Failed to parse output' };
     }
   }
-
-  /**
-   * Run multi-pass review. Each pass continues the same session.
-   */
-  async multiPassReview(diff, passes) {
-    const results = [];
-
-    for (let i = 0; i < passes.length; i++) {
-      const pass = passes[i];
-      const isFirst = i === 0;
-      const isLast = i === passes.length - 1;
-
-      const result = await this.run(pass.prompt, {
-        input: isFirst ? diff : undefined,
-        useSchema: isLast,
-        continueSession: !isFirst,
-      });
-
-      results.push({ pass: i + 1, focus: pass.focus, result });
-    }
-
-    return results;
-  }
-}
-
-function exec(cmd, args) {
-  return new Promise((resolve, reject) => {
-    const proc = execFile(cmd, args, {
-      maxBuffer: 10 * 1024 * 1024,
-      timeout: 300_000,
-    }, (error, stdout, stderr) => {
-      if (error && !stdout) {
-        reject(new Error(`${cmd} failed: ${stderr || error.message}`));
-      } else {
-        resolve({ stdout, stderr });
-      }
-    });
-  });
 }

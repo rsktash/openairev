@@ -6,13 +6,13 @@ const ADAPTERS = {
   codex: CodexAdapter,
 };
 
-export function createAdapter(agentName, config) {
+export function createAdapter(agentName, config, { cwd } = {}) {
   const AdapterClass = ADAPTERS[agentName];
   if (!AdapterClass) {
     throw new Error(`Unknown agent: ${agentName}. Available: ${Object.keys(ADAPTERS).join(', ')}`);
   }
   const agentConfig = config.agents?.[agentName] || {};
-  return new AdapterClass({ cmd: agentConfig.cmd });
+  return new AdapterClass({ cmd: agentConfig.cmd, cwd });
 }
 
 export function listAgents() {

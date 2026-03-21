@@ -1,0 +1,44 @@
+{
+  "type": "object",
+  "properties": {
+    "status": {
+      "type": "string",
+      "enum": ["approved", "needs_changes", "reject"]
+    },
+    "critical_issues": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "missing_requirements": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "sequencing_issues": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "risks": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "risk_level": {
+      "type": "string",
+      "enum": ["low", "medium", "high"]
+    },
+    "confidence": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1
+    },
+    "repair_instructions": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "false_positives_reconsidered": {
+      "type": "array",
+      "items": { "type": "string" }
+    }
+  },
+  "required": ["status", "critical_issues", "risk_level", "confidence"],
+  "additionalProperties": false
+}

@@ -1,76 +1,71 @@
-import { readFileSync } from 'fs';
-import { join } from 'path';
-import { loadPasses } from './pass-manager.js';
 import { createAdapter } from '../agents/registry.js';
+import { stageInput, buildInputReference } from './input-stager.js';
+import { loadPromptFile } from './prompt-loader.js';
 
-/**
- * Execute a full review cycle using the configured reviewer agent.
- */
-export async function runReview(diff, { config, reviewerName, depth, taskDescription, cwd = process.cwd() }) {
-  const passes = loadPasses(depth, cwd);
-  const adapter = createAdapter(reviewerName, config);
+export async function runReview(content, {
+  config,
+  reviewerName,
+  promptFile = 'reviewer.md',
+  taskDescription,
+  specRef,
+  cwd = process.cwd(),
+  sessionId = null,
+}) {
+  const adapter = createAdapter(reviewerName, config, { cwd });
 
-  // Load reviewer system prompt
-  const reviewerPrompt = loadReviewerPrompt(cwd);
-
-  // Prepend reviewer instructions to the first pass
-  if (passes.length > 0) {
-    passes[0].prompt = `${reviewerPrompt}\n\n${passes[0].prompt}`;
+  if (sessionId) {
+    adapter.restoreSession(sessionId);
   }
 
-  // Add task context if available
-  if (taskDescription && passes.length > 0) {
-    passes[0].prompt = `Task: ${taskDescription}\n\n${passes[0].prompt}`;
+  const reviewerPrompt = loadPromptFile(promptFile, cwd);
+  const staged = stageInput(content, { cwd });
+  const inputRef = buildInputReference(staged);
+
+  let prompt = reviewerPrompt;
+  if (taskDescription) {
+    prompt = `Task: ${taskDescription}\n\n${prompt}`;
   }
+  if (specRef) {
+    prompt += `\n\nSpec reference: ${specRef}\nRead the spec file for requirements and acceptance criteria.`;
+  }
+  prompt = `${prompt}${inputRef}`;
 
-  const sessionName = `review-${Date.now()}`;
-  const passResults = await adapter.multiPassReview(diff, passes, { sessionName });
+  const schemaFile = promptFile === 'plan-reviewer.md' ? 'plan-verdict-schema.json' : 'verdict-schema.json';
 
-  // Extract final verdict from last pass
-  const lastPass = passResults[passResults.length - 1];
-  const verdict = extractVerdict(lastPass);
+  const result = await adapter.run(prompt, {
+    useSchema: true,
+    schemaFile,
+    continueSession: !!sessionId,
+    sessionName: sessionId ? undefined : `review-${Date.now()}`,
+  });
+
+  const verdict = extractVerdict(result);
+  const executorFeedback = buildExecutorFeedback(verdict, cwd);
 
   return {
     reviewer: reviewerName,
-    depth,
-    passes: passResults.map(p => ({
-      pass: p.pass,
-      focus: p.focus,
-    })),
     verdict,
+    executor_feedback: executorFeedback,
     session_id: adapter.sessionName || adapter.sessionId,
   };
 }
 
-function loadReviewerPrompt(cwd) {
-  const userPath = join(cwd, '.airev', 'prompts', 'reviewer.md');
-  const builtinPath = join(cwd, 'prompts', 'reviewer.md');
-
-  try {
-    return readFileSync(userPath, 'utf-8').trim();
-  } catch {
-    try {
-      return readFileSync(builtinPath, 'utf-8').trim();
-    } catch {
-      return 'You are an expert code reviewer. Review the provided diff thoroughly.';
-    }
-  }
+function buildExecutorFeedback(verdict, cwd) {
+  const feedbackPrompt = loadPromptFile('executor-feedback.md', cwd);
+  if (!verdict) return null;
+  return `${feedbackPrompt}\n\`\`\`json\n${JSON.stringify(verdict, null, 2)}\n\`\`\``;
 }
 
-function extractVerdict(lastPass) {
-  const result = lastPass?.result;
+function extractVerdict(result) {
   if (!result) return null;
 
-  // Schema-enforced output from claude: look in structured_output or result
   if (result.structured_output) return result.structured_output;
   if (result.result && typeof result.result === 'object' && result.result.status) return result.result;
 
-  // Direct verdict object
   if (result.status && ['approved', 'needs_changes', 'reject'].includes(result.status)) {
     return result;
   }
 
-  // Try to extract from raw text
   const raw = result.result || result.raw || '';
   if (typeof raw === 'string') {
     const jsonMatch = raw.match(/\{[\s\S]*"status"\s*:\s*"(approved|needs_changes|reject)"[\s\S]*\}/);

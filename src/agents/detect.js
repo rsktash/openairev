@@ -1,10 +1,9 @@
-import { execFileSync } from 'child_process';
+import { execFile } from 'child_process';
 
-export async function detectAgent(cmd) {
-  try {
-    execFileSync('which', [cmd], { stdio: 'pipe' });
-    return true;
-  } catch {
-    return false;
-  }
+export function detectAgent(cmd) {
+  return new Promise((resolve) => {
+    execFile('which', [cmd], (error) => {
+      resolve(!error);
+    });
+  });
 }

@@ -1,5 +1,7 @@
 node_modules/
-.airev/credentials.json
-.airev/sessions/
+.openairev/credentials.json
+.openairev/sessions/
+.openairev/chains/
+.openairev/tmp/
 .DS_Store
 *.log

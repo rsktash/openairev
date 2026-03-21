@@ -23,4 +23,4 @@ jobs:
 
       - run: npm test --if-present
 
-      - run: node bin/airev.js --help
+      - run: node bin/openairev.js --help

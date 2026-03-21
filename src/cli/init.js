@@ -17,7 +17,7 @@ export async function initCommand() {
     const { overwrite } = await inquirer.prompt([{
       type: 'confirm',
       name: 'overwrite',
-      message: '.airev/config.yaml already exists. Overwrite?',
+      message: '.openairev/config.yaml already exists. Overwrite?',
       default: false,
     }]);
     if (!overwrite) {
@@ -26,11 +26,13 @@ export async function initCommand() {
     }
   }
 
-  console.log(chalk.bold('\nAIRev Setup\n'));
+  console.log(chalk.bold('\nOpenAIRev Setup\n'));
 
   // Detect available CLIs
-  const claudeAvailable = await detectAgent('claude');
-  const codexAvailable = await detectAgent('codex');
+  const [claudeAvailable, codexAvailable] = await Promise.all([
+    detectAgent('claude'),
+    detectAgent('codex'),
+  ]);
 
   console.log(`  Claude Code CLI: ${claudeAvailable ? chalk.green('found') : chalk.red('not found')}`);
   console.log(`  Codex CLI:       ${codexAvailable ? chalk.green('found') : chalk.red('not found')}\n`);
@@ -77,40 +79,16 @@ export async function initCommand() {
     },
     {
       type: 'list',
-      name: 'codex_depth',
-      message: 'Codex review depth?',
-      choices: [
-        { name: '1 — quick single pass', value: 1 },
-        { name: '3 — standard', value: 3 },
-        { name: '5 — thorough (recommended)', value: 5 },
-      ],
-      default: 2,
-      when: a => a.agents.includes('codex'),
-    },
-    {
-      type: 'list',
-      name: 'claude_depth',
-      message: 'Claude Code review depth?',
-      choices: [
-        { name: '1 — quick single pass (recommended)', value: 1 },
-        { name: '3 — standard', value: 3 },
-        { name: '5 — thorough', value: 5 },
-      ],
-      default: 0,
-      when: a => a.agents.includes('claude_code'),
-    },
-    {
-      type: 'list',
       name: 'trigger',
       message: 'Review trigger mode?',
       choices: [
-        { name: 'explicit (airev review)', value: 'explicit' },
+        { name: 'explicit (openairev review)', value: 'explicit' },
         { name: 'auto (every output triggers review)', value: 'auto' },
       ],
     },
     {
       type: 'checkbox',
-      name: 'tools',
+      name: 'tool_selection',
       message: 'Enable tool gates?',
       choices: [
         { name: 'Tests', value: 'run_tests', checked: true },
@@ -119,10 +97,39 @@ export async function initCommand() {
       ],
     },
     {
+      type: 'input',
+      name: 'test_cmd',
+      message: 'Test command?',
+      default: 'npm test',
+      when: a => a.tool_selection.includes('run_tests'),
+    },
+    {
+      type: 'input',
+      name: 'lint_cmd',
+      message: 'Lint command?',
+      default: 'npm run lint',
+      when: a => a.tool_selection.includes('run_lint'),
+    },
+    {
+      type: 'input',
+      name: 'typecheck_cmd',
+      message: 'Type check command?',
+      default: 'npx tsc --noEmit',
+      when: a => a.tool_selection.includes('run_typecheck'),
+    },
+    {
       type: 'number',
-      name: 'max_rounds',
-      message: 'Max review-revision loops?',
-      default: 3,
+      name: 'claude_iterations',
+      message: 'Max iterations when Claude Code executes (Claude→Codex→Claude→... cycles)?',
+      default: 5,
+      when: a => a.agents.includes('claude_code') && a.claude_reviewer,
+    },
+    {
+      type: 'number',
+      name: 'codex_iterations',
+      message: 'Max iterations when Codex executes (Codex→Claude→Codex→... cycles)?',
+      default: 1,
+      when: a => a.agents.includes('codex') && a.codex_reviewer,
     },
   ]);
 
@@ -131,9 +138,8 @@ export async function initCommand() {
     agents: {},
     review_policy: {},
     review_trigger: answers.trigger,
-    tools: answers.tools,
+    tools: buildToolsConfig(answers),
     session: {
-      max_rounds: answers.max_rounds,
       store_history: true,
       archive_after: '7d',
     },
@@ -143,10 +149,12 @@ export async function initCommand() {
     config.agents.claude_code = {
       cmd: 'claude',
       available: true,
-      review_depth: answers.claude_depth ?? 1,
     };
     if (answers.claude_reviewer) {
-      config.review_policy.claude_code = answers.claude_reviewer;
+      config.review_policy.claude_code = {
+        reviewer: answers.claude_reviewer,
+        max_iterations: answers.claude_iterations ?? 5,
+      };
     }
   }
 
@@ -154,10 +162,12 @@ export async function initCommand() {
     config.agents.codex = {
       cmd: 'codex',
       available: true,
-      review_depth: answers.codex_depth ?? 5,
     };
     if (answers.codex_reviewer) {
-      config.review_policy.codex = answers.codex_reviewer;
+      config.review_policy.codex = {
+        reviewer: answers.codex_reviewer,
+        max_iterations: answers.codex_iterations ?? 1,
+      };
     }
   }
 
@@ -165,24 +175,33 @@ export async function initCommand() {
   const configDir = getConfigDir(cwd);
   mkdirSync(configDir, { recursive: true });
   mkdirSync(join(configDir, 'sessions'), { recursive: true });
-  mkdirSync(join(configDir, 'prompts', 'review_passes'), { recursive: true });
+  mkdirSync(join(configDir, 'prompts'), { recursive: true });
 
   writeFileSync(getConfigPath(cwd), YAML.stringify(config));
 
   // Copy prompt templates
   const promptsDir = join(configDir, 'prompts');
   copyIfMissing(join(PROMPTS_SRC, 'reviewer.md'), join(promptsDir, 'reviewer.md'));
-  for (let i = 1; i <= 5; i++) {
-    const files = ['pass_1_surface.md', 'pass_2_edge_cases.md', 'pass_3_requirements.md', 'pass_4_reconsider.md', 'pass_5_verdict.md'];
-    copyIfMissing(
-      join(PROMPTS_SRC, 'review_passes', files[i - 1]),
-      join(promptsDir, 'review_passes', files[i - 1])
-    );
-  }
+  copyIfMissing(join(PROMPTS_SRC, 'plan-reviewer.md'), join(promptsDir, 'plan-reviewer.md'));
+  copyIfMissing(join(PROMPTS_SRC, 'executor-feedback.md'), join(promptsDir, 'executor-feedback.md'));
 
-  console.log(`\n${chalk.green('✓')} Config written to .airev/config.yaml`);
-  console.log(`${chalk.green('✓')} Prompt templates written to .airev/prompts/`);
-  console.log(`\nRun ${chalk.cyan('airev review')} to trigger a review.\n`);
+  console.log(`\n${chalk.green('✓')} Config written to .openairev/config.yaml`);
+  console.log(`${chalk.green('✓')} Prompt templates written to .openairev/prompts/`);
+  console.log(`\nRun ${chalk.cyan('openairev review')} to trigger a review.\n`);
+}
+
+function buildToolsConfig(answers) {
+  const tools = {};
+  if (answers.tool_selection?.includes('run_tests')) {
+    tools.run_tests = answers.test_cmd || 'npm test';
+  }
+  if (answers.tool_selection?.includes('run_lint')) {
+    tools.run_lint = answers.lint_cmd || 'npm run lint';
+  }
+  if (answers.tool_selection?.includes('run_typecheck')) {
+    tools.run_typecheck = answers.typecheck_cmd || 'npx tsc --noEmit';
+  }
+  return tools;
 }
 
 function copyIfMissing(src, dest) {
