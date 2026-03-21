@@ -12,7 +12,7 @@ const program = new Command();
 program
   .name('openairev')
   .description('OpenAIRev — cross-model AI code reviewer')
-  .version('0.2.0');
+  .version('0.2.1');
 
 program
   .command('init')

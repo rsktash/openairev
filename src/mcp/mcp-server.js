@@ -94,7 +94,7 @@ async function handleRequest(request, config, cwd) {
         result: {
           protocolVersion: '2024-11-05',
           capabilities: { tools: {} },
-          serverInfo: { name: 'openairev', version: '0.2.0' },
+          serverInfo: { name: 'openairev', version: '0.2.1' },
         },
         id,
       };
