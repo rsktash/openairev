@@ -1,5 +1,5 @@
-import { writeFileSync, mkdirSync, copyFileSync, existsSync } from 'fs';
-import { join, dirname } from 'path';
+import { writeFileSync, readFileSync, mkdirSync, copyFileSync, existsSync } from 'fs';
+import { join, dirname, resolve } from 'path';
 import { fileURLToPath } from 'url';
 import inquirer from 'inquirer';
 import YAML from 'yaml';
@@ -8,7 +8,9 @@ import { getConfigDir, getConfigPath, configExists } from '../config/config-load
 import { detectAgent } from '../agents/detect.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const PROMPTS_SRC = join(__dirname, '../../prompts');
+const PACKAGE_ROOT = resolve(__dirname, '../..');
+const PROMPTS_SRC = join(PACKAGE_ROOT, 'prompts');
+const MCP_SERVER_PATH = join(PACKAGE_ROOT, 'src/mcp/mcp-server.js');
 
 export async function initCommand() {
   const cwd = process.cwd();
@@ -187,6 +189,15 @@ export async function initCommand() {
 
   console.log(`\n${chalk.green('✓')} Config written to .openairev/config.yaml`);
   console.log(`${chalk.green('✓')} Prompt templates written to .openairev/prompts/`);
+
+  // Configure agent integrations
+  if (answers.agents.includes('claude_code')) {
+    setupClaudeCode(cwd);
+  }
+  if (answers.agents.includes('codex')) {
+    setupCodex(cwd);
+  }
+
   console.log(`\nRun ${chalk.cyan('openairev review')} to trigger a review.\n`);
 }
 
@@ -207,5 +218,91 @@ function buildToolsConfig(answers) {
 function copyIfMissing(src, dest) {
   if (!existsSync(dest) && existsSync(src)) {
     copyFileSync(src, dest);
+  }
+}
+
+/**
+ * Set up Claude Code integration:
+ * - Add MCP server to .claude/settings.json
+ * - Append instructions to CLAUDE.md
+ */
+function setupClaudeCode(cwd) {
+  // MCP server config
+  const claudeDir = join(cwd, '.claude');
+  const settingsPath = join(claudeDir, 'settings.json');
+
+  mkdirSync(claudeDir, { recursive: true });
+
+  let settings = {};
+  if (existsSync(settingsPath)) {
+    try { settings = JSON.parse(readFileSync(settingsPath, 'utf-8')); } catch { /* start fresh */ }
+  }
+
+  if (!settings.mcpServers) settings.mcpServers = {};
+  settings.mcpServers.openairev = {
+    command: 'node',
+    args: [MCP_SERVER_PATH],
+  };
+
+  writeFileSync(settingsPath, JSON.stringify(settings, null, 2));
+  console.log(`${chalk.green('✓')} MCP server added to .claude/settings.json`);
+
+  // CLAUDE.md instructions
+  const claudeMdPath = join(cwd, 'CLAUDE.md');
+  const marker = '<!-- openairev -->';
+  const instructions = `
+${marker}
+## OpenAIRev — Cross-Model Code Review
+
+This project uses OpenAIRev for independent AI code review. When the user asks to "review", "get a review", or "check my changes", use the \`openairev_review\` MCP tool.
+
+- You are the **executor**. Set \`executor\` to \`"claude_code"\` when calling the tool.
+- A different AI model will review your code independently.
+- When you receive review feedback, treat it as **peer review** — use your judgment, don't blindly apply every suggestion.
+- The review verdict includes \`critical_issues\`, \`repair_instructions\`, and a \`confidence\` score. Focus on high-confidence critical issues.
+${marker}
+`;
+
+  if (existsSync(claudeMdPath)) {
+    const existing = readFileSync(claudeMdPath, 'utf-8');
+    if (!existing.includes(marker)) {
+      writeFileSync(claudeMdPath, existing + '\n' + instructions.trim() + '\n');
+      console.log(`${chalk.green('✓')} OpenAIRev instructions appended to CLAUDE.md`);
+    }
+  } else {
+    writeFileSync(claudeMdPath, instructions.trim() + '\n');
+    console.log(`${chalk.green('✓')} CLAUDE.md created with OpenAIRev instructions`);
+  }
+}
+
+/**
+ * Set up Codex CLI integration:
+ * - Add instructions to AGENTS.md
+ */
+function setupCodex(cwd) {
+  const agentsMdPath = join(cwd, 'AGENTS.md');
+  const marker = '<!-- openairev -->';
+  const instructions = `
+${marker}
+## OpenAIRev — Cross-Model Code Review
+
+This project uses OpenAIRev for independent AI code review. When the user asks to "review", "get a review", or "check my changes", use the \`openairev_review\` MCP tool.
+
+- You are the **executor**. Set \`executor\` to \`"codex"\` when calling the tool.
+- A different AI model will review your code independently.
+- When you receive review feedback, treat it as **peer review** — use your judgment, don't blindly apply every suggestion.
+- The review verdict includes \`critical_issues\`, \`repair_instructions\`, and a \`confidence\` score. Focus on high-confidence critical issues.
+${marker}
+`;
+
+  if (existsSync(agentsMdPath)) {
+    const existing = readFileSync(agentsMdPath, 'utf-8');
+    if (!existing.includes(marker)) {
+      writeFileSync(agentsMdPath, existing + '\n' + instructions.trim() + '\n');
+      console.log(`${chalk.green('✓')} OpenAIRev instructions appended to AGENTS.md`);
+    }
+  } else {
+    writeFileSync(agentsMdPath, instructions.trim() + '\n');
+    console.log(`${chalk.green('✓')} AGENTS.md created with OpenAIRev instructions`);
   }
 }
