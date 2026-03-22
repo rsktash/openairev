@@ -240,12 +240,14 @@ ${marker}
 This project uses OpenAIRev for independent AI code review. When the user asks to "review", "get a review", or "check my changes":
 
 1. Call \`openairev_review\` with \`executor: "claude_code"\` and \`diff_cmd\` scoped to the files you changed (e.g. \`"git diff HEAD -- src/auth.ts src/routes.ts"\`). The review starts in the background and returns immediately.
-2. Call \`openairev_status\` to check progress. It shows what the reviewer is reading and doing. If the review is still running, call it again after a few seconds.
-3. When the review is complete, \`openairev_status\` returns the full verdict with feedback.
+2. To check progress, read \`.openairev/progress.json\` — it updates in real-time showing what the reviewer is reading and doing.
+3. When \`progress.json\` shows \`"status": "completed"\`, the verdict and feedback are in the same file.
 
-- **IMPORTANT**: Always use \`diff_cmd\` to scope the diff to your changed files. Do NOT let it auto-detect — the full repo diff may be too large.
+**Tips**:
+- Always use \`diff_cmd\` to scope the diff to your changed files. Do NOT let it auto-detect — the full repo diff may be too large.
+- You can launch the review in a **sub-agent** and continue other work while it runs.
 - When you receive review feedback, treat it as **peer review** — use your judgment, don't blindly apply every suggestion.
-- The review verdict includes \`critical_issues\`, \`repair_instructions\`, and a \`confidence\` score. Focus on high-confidence critical issues.
+- Focus on high-confidence \`critical_issues\` and \`repair_instructions\`.
 ${marker}
 `;
 
@@ -302,12 +304,13 @@ ${marker}
 This project uses OpenAIRev for independent AI code review. When the user asks to "review", "get a review", or "check my changes":
 
 1. Call \`openairev_review\` with \`executor: "codex"\` and \`diff_cmd\` scoped to the files you changed (e.g. \`"git diff HEAD -- src/auth.ts src/routes.ts"\`). The review starts in the background and returns immediately.
-2. Call \`openairev_status\` to check progress. It shows what the reviewer is reading and doing. If the review is still running, call it again after a few seconds.
-3. When the review is complete, \`openairev_status\` returns the full verdict with feedback.
+2. To check progress, read \`.openairev/progress.json\` — it updates in real-time showing what the reviewer is reading and doing.
+3. When \`progress.json\` shows \`"status": "completed"\`, the verdict and feedback are in the same file.
 
-- **IMPORTANT**: Always use \`diff_cmd\` to scope the diff to your changed files. Do NOT let it auto-detect — the full repo diff may be too large.
+**Tips**:
+- Always use \`diff_cmd\` to scope the diff to your changed files. Do NOT let it auto-detect — the full repo diff may be too large.
 - When you receive review feedback, treat it as **peer review** — use your judgment, don't blindly apply every suggestion.
-- The review verdict includes \`critical_issues\`, \`repair_instructions\`, and a \`confidence\` score. Focus on high-confidence critical issues.
+- Focus on high-confidence \`critical_issues\` and \`repair_instructions\`.
 ${marker}
 `;
 

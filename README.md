@@ -222,11 +222,11 @@ Restart your agent CLI after adding.
 
 The review runs asynchronously so you can see progress:
 
-1. Call `openairev_review` → returns *"Review started. Call openairev_status."*
-2. Call `openairev_status` → shows live progress (files read, commands run, tokens)
-3. When done, `openairev_status` returns the full verdict and feedback
+1. Call `openairev_review` → starts review in background, returns immediately
+2. Read `.openairev/progress.json` → shows live progress (files read, commands run, tokens)
+3. When `status` is `"completed"`, the verdict and feedback are in the same file
 
-This lets the executor AI (and user) see what the reviewer is doing instead of waiting blindly.
+The executor AI can read the progress file directly (no MCP round-trip needed), or use `openairev_status` as an alternative. The AI can also launch the review in a sub-agent and continue other work while it runs.
 
 ## Config
 
