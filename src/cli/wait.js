@@ -5,6 +5,12 @@ import { getConfigDir } from '../config/config-loader.js';
 export async function waitCommand(options) {
   const progressFile = options.file || join(getConfigDir(), 'progress.json');
 
+  // Wait up to 30s for the progress file to appear (race with MCP server)
+  let waited = 0;
+  while (!existsSync(progressFile) && waited < 30_000) {
+    await sleep(1000);
+    waited += 1000;
+  }
   if (!existsSync(progressFile)) {
     console.log('No review in progress. Call openairev_review first.');
     process.exit(1);
@@ -30,6 +36,10 @@ export async function waitCommand(options) {
       }
     }, 2000);
   });
+}
+
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 function readProgress(path) {
