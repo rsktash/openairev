@@ -258,8 +258,7 @@ ${marker}
 This project uses OpenAIRev for independent AI code review. When the user asks to "review", "get a review", or "check my changes":
 
 1. Call \`openairev_review\` with \`executor: "claude_code"\` and \`diff_cmd\` scoped to the files you changed (e.g. \`"git diff HEAD -- src/auth.ts src/routes.ts"\`). The review starts in the background and returns immediately.
-2. To check progress, read \`.openairev/progress.json\` — it updates in real-time showing what the reviewer is reading and doing.
-3. When \`progress.json\` shows \`"status": "completed"\`, the verdict and feedback are in the same file.
+2. Run \`openairev wait\` via Bash to stream progress and get the verdict when done. This is a single blocking call — no polling needed.
 
 **Tips**:
 - Always use \`diff_cmd\` to scope the diff to your changed files. Do NOT let it auto-detect — the full repo diff may be too large.
@@ -313,8 +312,7 @@ ${marker}
 This project uses OpenAIRev for independent AI code review. When the user asks to "review", "get a review", or "check my changes":
 
 1. Call \`openairev_review\` with \`executor: "codex"\` and \`diff_cmd\` scoped to the files you changed (e.g. \`"git diff HEAD -- src/auth.ts src/routes.ts"\`). The review starts in the background and returns immediately.
-2. To check progress, read \`.openairev/progress.json\` — it updates in real-time showing what the reviewer is reading and doing.
-3. When \`progress.json\` shows \`"status": "completed"\`, the verdict and feedback are in the same file.
+2. Run \`openairev wait\` to stream progress and get the verdict when done. This is a single blocking call — no polling needed.
 
 **Tips**:
 - Always use \`diff_cmd\` to scope the diff to your changed files. Do NOT let it auto-detect — the full repo diff may be too large.

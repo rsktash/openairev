@@ -7,6 +7,7 @@ import { reviewCommand } from '../src/cli/review.js';
 import { resumeCommand } from '../src/cli/resume.js';
 import { statusCommand } from '../src/cli/status.js';
 import { historyCommand } from '../src/cli/history.js';
+import { waitCommand } from '../src/cli/wait.js';
 
 const program = new Command();
 
@@ -53,5 +54,10 @@ program
   .option('-n, --limit <number>', 'Number of items to show', parseInt, 10)
   .option('--chains', 'Show chains instead of sessions')
   .action(historyCommand);
+
+program
+  .command('wait')
+  .description('Wait for a background review to finish, streaming progress')
+  .action(waitCommand);
 
 program.parse();

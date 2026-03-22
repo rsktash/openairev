@@ -213,7 +213,7 @@ Restart your agent CLI after adding.
 | Tool | Description |
 |------|-------------|
 | `openairev_review` | Start a review in the background. Returns immediately. |
-| `openairev_status` | Check review progress and get the verdict when ready. |
+| `openairev_status` | Check review progress (prefer `openairev wait` instead). |
 | `openairev_run_tests` | Run project test suite |
 | `openairev_run_lint` | Run linter |
 | `openairev_get_diff` | Get current git diff |
@@ -223,10 +223,9 @@ Restart your agent CLI after adding.
 The review runs asynchronously so you can see progress:
 
 1. Call `openairev_review` → starts review in background, returns immediately
-2. Read `.openairev/progress.json` → shows live progress (files read, commands run, tokens)
-3. When `status` is `"completed"`, the verdict and feedback are in the same file
+2. Run `openairev wait` via Bash → streams progress (files read, commands run, tokens) and outputs the verdict when done
 
-The executor AI can read the progress file directly (no MCP round-trip needed), or use `openairev_status` as an alternative. The AI can also launch the review in a sub-agent and continue other work while it runs.
+One MCP call + one Bash call. No polling, no sleep loops. The AI can also launch the review in a sub-agent and continue other work while it runs.
 
 ## Config
 

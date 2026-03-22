@@ -25,7 +25,7 @@ const server = new McpServer({
 
 server.tool(
   'openairev_review',
-  'TRIGGER: Use this tool when the user says "review", "review my code", "get a review", "check my changes", "openairev", or asks for independent/cross-model code review. Sends current code changes to a DIFFERENT AI model for independent review. The review runs in the background and returns immediately. To check progress, read .openairev/progress.json — it updates in real-time. When status is "completed", the verdict is in the same file.',
+  'TRIGGER: Use this tool when the user says "review", "review my code", "get a review", "check my changes", "openairev", or asks for independent/cross-model code review. Sends current code changes to a DIFFERENT AI model for independent review. The review starts in the background and returns immediately. After calling this, run `openairev wait` via Bash to stream progress and get the verdict — one blocking call, no polling needed.',
   {
     executor: z.string().optional().describe('Which agent wrote the code (claude_code or codex). If you are Claude Code, set this to "claude_code". If you are Codex, set this to "codex".'),
     diff: z.string().optional().describe('The diff to review. IMPORTANT: Pass only the diff for files YOU changed, not the entire repo. Use `git diff HEAD -- file1 file2` to scope it. If omitted, auto-detects from git which may be too large.'),
@@ -90,7 +90,7 @@ server.tool(
     return {
       content: [{
         type: 'text',
-        text: `Review started. Reviewer: ${reviewerName}\n\nCall openairev_status to check progress and get the verdict when ready.`,
+        text: `Review started. Reviewer: ${reviewerName}\n\nRun \`openairev wait\` via Bash to stream progress and get the verdict when done.`,
       }],
     };
   }
@@ -98,7 +98,7 @@ server.tool(
 
 server.tool(
   'openairev_status',
-  'Check the progress and result of the current or most recent OpenAIRev review. Alternative to reading .openairev/progress.json directly.',
+  'Check the progress and result of the current or most recent OpenAIRev review. Prefer running `openairev wait` via Bash instead — it streams progress and blocks until done.',
   {},
   async () => {
     const progress = readProgress();
@@ -109,8 +109,8 @@ server.tool(
     if (progress.status === 'running') {
       const lines = progress.progress || [];
       const text = lines.length > 0
-        ? `Review in progress (reviewer: ${progress.reviewer}):\n${lines.map(l => `  ${l}`).join('\n')}\n\nStill running... Call openairev_status again in a few seconds.`
-        : `Review in progress (reviewer: ${progress.reviewer}). Started: ${progress.started}\n\nCall openairev_status again in a few seconds.`;
+        ? `Review in progress (reviewer: ${progress.reviewer}):\n${lines.map(l => `  ${l}`).join('\n')}\n\nStill running. Run \`openairev wait\` via Bash to stream progress until done.`
+        : `Review in progress (reviewer: ${progress.reviewer}). Started: ${progress.started}\n\nRun \`openairev wait\` via Bash to stream progress until done.`;
       return { content: [{ type: 'text', text }] };
     }
 
