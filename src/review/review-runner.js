@@ -1,7 +1,7 @@
 import { mkdirSync, writeFileSync } from 'fs';
 import { join } from 'path';
 import { createAdapter } from '../agents/registry.js';
-import { stageInput, buildInputReference } from './input-stager.js';
+import { stageInput, buildInputReference, compactDiff, getReviewerBudget, estimateTokens } from './input-stager.js';
 import { loadPromptFile } from './prompt-loader.js';
 
 export async function runReview(content, {
@@ -22,7 +22,12 @@ export async function runReview(content, {
   }
 
   const reviewerPrompt = loadPromptFile(promptFile, cwd);
-  const staged = stageInput(content, { cwd });
+
+  // Compact diff if it exceeds the reviewer's context budget
+  const budget = getReviewerBudget(reviewerName);
+  const { content: compactedContent, compacted, stats } = compactDiff(content, { maxTokens: budget });
+
+  const staged = stageInput(compactedContent, { cwd });
   const inputRef = buildInputReference(staged);
 
   let prompt = reviewerPrompt;
@@ -51,7 +56,7 @@ export async function runReview(content, {
 
   logReviewerOutput(rawOutput, reviewerName, cwd);
 
-  return {
+  const reviewResult = {
     reviewer: reviewerName,
     verdict,
     executor_feedback: executorFeedback,
@@ -59,6 +64,31 @@ export async function runReview(content, {
     progress: result?.progress || [],
     session_id: adapter.sessionName || adapter.sessionId,
   };
+
+  if (compacted) {
+    reviewResult.context_stats = stats;
+  }
+
+  // Mark partial reviews so callers know files were omitted
+  if (compacted && stats.filesDropped > 0 && verdict) {
+    reviewResult.partial = true;
+    reviewResult.partial_notice = `PARTIAL REVIEW: ${stats.filesDropped} files were omitted to fit the reviewer's context budget (${stats.droppedFiles.join(', ')}). Re-run with a smaller diff to cover them.`;
+  }
+
+  // Diagnose null verdicts — check for explicit errors before blaming context budget
+  if (!verdict) {
+    const explicitError = result?.error;
+    if (explicitError) {
+      reviewResult.error = `Reviewer (${reviewerName}) failed: ${explicitError}`;
+    } else {
+      reviewResult.error = `Reviewer (${reviewerName}) produced no verdict. ` +
+        `Diff was ~${stats.originalTokens} tokens` +
+        (compacted ? `, compacted to ~${stats.finalTokens} tokens (${stats.filesDropped} files dropped)` : '') +
+        `. Possible causes: context budget exceeded, auth failure, or schema mismatch. Check .openairev/logs/ for details.`;
+    }
+  }
+
+  return reviewResult;
 }
 
 function logReviewerOutput(rawOutput, reviewerName, cwd) {

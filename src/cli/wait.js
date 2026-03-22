@@ -61,6 +61,9 @@ function printResult(data) {
   }
 
   console.log('');
+  if (data.partial_notice) {
+    console.log(`\n⚠ ${data.partial_notice}\n`);
+  }
   if (data.executor_feedback) {
     console.log(data.executor_feedback);
   } else if (data.verdict) {

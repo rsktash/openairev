@@ -76,13 +76,16 @@ server.tool(
       session.status = 'completed';
       saveSession(session, cwd);
 
-      writeProgress({
-        status: 'completed',
+      const progressData = {
+        status: review.error ? 'error' : 'completed',
         reviewer: reviewerName,
         progress: review.progress || [],
         verdict: review.verdict,
         executor_feedback: review.executor_feedback,
-      });
+      };
+      if (review.error) progressData.error = review.error;
+      if (review.partial_notice) progressData.partial_notice = review.partial_notice;
+      writeProgress(progressData);
       activeReview = null;
       activeAbort = null;
       return review;

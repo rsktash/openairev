@@ -24,7 +24,7 @@ export class CodexAdapter {
     }
 
     args.push(prompt);
-    args.push('--json');
+    args.push('--json', '--sandbox', 'read-only');
 
     if (useSchema) {
       const schemaPath = join(__dirname, '../config', schemaFile);
