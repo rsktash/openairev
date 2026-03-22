@@ -130,12 +130,18 @@ export function parseClaudeStreamOutput(stdout, { progress = [], fallbackSession
     };
   }
 
-  return {
+  const returnValue = {
     result: verdict || finalText,
     raw_output: stdout,
     progress,
     session_id: sessionId,
   };
+
+  if (!verdict && !finalText) {
+    returnValue.error = 'Claude produced no output. Check .openairev/logs/ for the raw session output.';
+  }
+
+  return returnValue;
 }
 
 function extractAssistantText(event) {

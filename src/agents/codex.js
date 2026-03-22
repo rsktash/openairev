@@ -42,6 +42,8 @@ export class CodexAdapter {
       const lines = result.stdout.trim().split('\n');
       let agentMessage = null;
       let sessionId = null;
+      let lastTurn = null;
+      let lastError = null;
 
       for (const line of lines) {
         try {
@@ -52,12 +54,13 @@ export class CodexAdapter {
           if (event.type === 'item.completed' && event.item?.type === 'agent_message') {
             agentMessage = event.item.text;
           }
-          if (event.type === 'error' || event.type === 'turn.failed') {
-            const errMsg = event.message || event.error?.message || JSON.stringify(event);
-            throw new Error(`Codex error: ${errMsg}`);
+          if (event.type === 'turn.completed') {
+            lastTurn = event;
           }
-        } catch (e) {
-          if (e.message?.startsWith('Codex error:')) throw e;
+          if (event.type === 'error' || event.type === 'turn.failed') {
+            lastError = event.message || event.error?.message || JSON.stringify(event);
+          }
+        } catch {
           // skip non-JSON lines
         }
       }
@@ -76,9 +79,19 @@ export class CodexAdapter {
         }
       }
 
-      return { raw: result.stdout, raw_output: result.stdout, progress, session_id: this.sessionId };
-    } catch {
-      return { raw: result.stdout, raw_output: result.stdout, error: 'Failed to parse output' };
+      // No verdict — build a diagnostic error from what we know
+      let error = lastError ? `Codex error: ${lastError}` : 'Codex produced no verdict.';
+      if (lastTurn?.usage) {
+        const { input_tokens, output_tokens } = lastTurn.usage;
+        error += ` Tokens used: ${input_tokens} in / ${output_tokens} out.`;
+      }
+      if (lastTurn && !lastError) {
+        error += ' Likely exhausted its turn budget exploring files before producing output.';
+      }
+
+      return { raw: result.stdout, raw_output: result.stdout, progress, session_id: this.sessionId, error };
+    } catch (e) {
+      return { raw: result.stdout, raw_output: result.stdout, error: `Failed to parse Codex output: ${e.message}` };
     }
   }
 }
