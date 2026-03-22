@@ -26,7 +26,7 @@ const server = new McpServer({
 
 server.tool(
   'openairev_review',
-  'TRIGGER: Use this tool when the user says "review", "review my code", "get a review", "check my changes", "openairev", or asks for independent/cross-model code review. Sends current code changes to a DIFFERENT AI model for independent review. The review starts in the background and returns immediately. After calling this, run `openairev wait` via Bash to stream progress and get the verdict — one blocking call, no polling needed.',
+  'TRIGGER: Use this tool when the user says "review", "review my code", "get a review", "check my changes", "openairev", or asks for independent/cross-model code review. Sends current code changes to a DIFFERENT AI model for independent review. The review starts in the background and returns immediately. IMPORTANT: After calling this tool, you MUST immediately run the `openairev wait --file <path>` Bash command shown in the response. Do NOT skip the wait step.',
   {
     executor: z.string().optional().describe('Which agent wrote the code (claude_code or codex). If you are Claude Code, set this to "claude_code". If you are Codex, set this to "codex".'),
     diff_cmd: z.string().optional().describe('The git diff command for the reviewer to run, e.g. "git diff HEAD -- src/auth.ts src/routes.ts". The reviewer runs in the same repo and executes this itself. If omitted, auto-detects staged or unstaged changes.'),
@@ -91,7 +91,7 @@ server.tool(
     return {
       content: [{
         type: 'text',
-        text: `Review started. Reviewer: ${reviewerName}\nProgress file: ${PROGRESS_FILE}\n\nRun \`openairev wait --file ${PROGRESS_FILE}\` via Bash to stream progress and get the verdict. The file may take a few seconds to appear — wait will handle this automatically. Do NOT re-call openairev_review or use sleep/polling.`,
+        text: `Review started. Reviewer: ${reviewerName}\nProgress file: ${PROGRESS_FILE}\n\nIMPORTANT: You MUST now run this Bash command immediately:\n\`openairev wait --file ${PROGRESS_FILE}\`\n\nThis streams progress and blocks until the verdict is ready. Do NOT skip this step, do NOT use sleep/polling, do NOT re-call openairev_review.`,
       }],
     };
   }
