@@ -1,6 +1,6 @@
 {
   "name": "openairev",
-  "version": "0.3.9",
+  "version": "0.3.10",
   "description": "Cross-model AI code reviewer — independent review for AI-assisted coding workflows",
   "type": "module",
   "bin": {

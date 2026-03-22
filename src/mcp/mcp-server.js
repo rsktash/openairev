@@ -96,7 +96,7 @@ server.tool(
     return {
       content: [{
         type: 'text',
-        text: `Review started. Reviewer: ${reviewerName}\nProgress file: ${PROGRESS_FILE}\n\nRun \`openairev wait\` from ${cwd} or read ${PROGRESS_FILE} directly to stream progress and get the verdict.`,
+        text: `Review started. Reviewer: ${reviewerName}\nProgress file: ${PROGRESS_FILE}\n\nRun \`openairev wait --file ${PROGRESS_FILE}\` via Bash to stream progress and get the verdict. The file may take a few seconds to appear — wait will handle this automatically. Do NOT re-call openairev_review or use sleep/polling.`,
       }],
     };
   }

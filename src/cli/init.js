@@ -257,13 +257,15 @@ ${marker}
 
 This project uses OpenAIRev for independent AI code review. When the user asks to "review", "get a review", or "check my changes":
 
-1. Call \`openairev_review\` (MCP tool) with \`executor: "claude_code"\` and \`diff_cmd\` scoped to the files you changed (e.g. \`"git diff HEAD -- src/auth.ts src/routes.ts"\`). It returns immediately.
-2. Run \`openairev wait\` via Bash. It streams live progress and blocks until the verdict is ready — one command, that's it.
+1. Call \`openairev_review\` (MCP tool) with \`executor: "claude_code"\` and \`diff_cmd\` scoped to the files you changed (e.g. \`"git diff HEAD -- src/auth.ts src/routes.ts"\`). It returns immediately with a progress file path.
+2. Run \`openairev wait --file <progress_file_path>\` via Bash using the path from step 1. It streams live progress and blocks until the verdict is ready.
 
 **Rules — you MUST follow these:**
+- ALWAYS pass \`--file\` to \`openairev wait\` with the exact path from the review response. Without it, wait may look in the wrong directory.
 - ALWAYS scope \`diff_cmd\` to your changed files. Never send the full repo diff — the reviewer will run out of budget.
-- NEVER use \`sleep\`, polling loops, or manually read progress.json. \`openairev wait\` handles everything.
+- NEVER use \`sleep\`, polling loops, or manually read progress.json. \`openairev wait --file\` handles everything.
 - NEVER call \`openairev_status\`. Use \`openairev wait\` instead.
+- NEVER re-call \`openairev_review\` if wait fails — the progress file may take a few seconds to appear. Just retry \`openairev wait --file\`.
 - If a review is stuck or you want to retry, call \`openairev_cancel\` to kill the running review, then start a new one.
 - You MAY launch the review + wait in a sub-agent and continue other work in parallel.
 - Treat review feedback as peer review — use your judgment, focus on \`critical_issues\` and \`repair_instructions\`.
@@ -313,13 +315,15 @@ ${marker}
 
 This project uses OpenAIRev for independent AI code review. When the user asks to "review", "get a review", or "check my changes":
 
-1. Call \`openairev_review\` (MCP tool) with \`executor: "codex"\` and \`diff_cmd\` scoped to the files you changed (e.g. \`"git diff HEAD -- src/auth.ts src/routes.ts"\`). It returns immediately.
-2. Run \`openairev wait\` via Bash. It streams live progress and blocks until the verdict is ready — one command, that's it.
+1. Call \`openairev_review\` (MCP tool) with \`executor: "codex"\` and \`diff_cmd\` scoped to the files you changed (e.g. \`"git diff HEAD -- src/auth.ts src/routes.ts"\`). It returns immediately with a progress file path.
+2. Run \`openairev wait --file <progress_file_path>\` via Bash using the path from step 1. It streams live progress and blocks until the verdict is ready.
 
 **Rules — you MUST follow these:**
+- ALWAYS pass \`--file\` to \`openairev wait\` with the exact path from the review response. Without it, wait may look in the wrong directory.
 - ALWAYS scope \`diff_cmd\` to your changed files. Never send the full repo diff — the reviewer will run out of budget.
-- NEVER use \`sleep\`, polling loops, or manually read progress.json. \`openairev wait\` handles everything.
+- NEVER use \`sleep\`, polling loops, or manually read progress.json. \`openairev wait --file\` handles everything.
 - NEVER call \`openairev_status\`. Use \`openairev wait\` instead.
+- NEVER re-call \`openairev_review\` if wait fails — the progress file may take a few seconds to appear. Just retry \`openairev wait --file\`.
 - If a review is stuck or you want to retry, call \`openairev_cancel\` to kill the running review, then start a new one.
 - Treat review feedback as peer review — use your judgment, focus on \`critical_issues\` and \`repair_instructions\`.
 ${marker}
