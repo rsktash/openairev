@@ -41,7 +41,8 @@ server.tool(
 
     const reviewDiffCmd = diff_cmd || buildDiffCmd();
 
-    if (!hasDiff()) {
+    // Only validate when auto-detecting — if caller provided diff_cmd, trust it
+    if (!diff_cmd && !hasDiff()) {
       return { content: [{ type: 'text', text: 'No changes found to review.' }] };
     }
 
