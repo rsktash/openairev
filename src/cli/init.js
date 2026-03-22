@@ -257,14 +257,15 @@ ${marker}
 
 This project uses OpenAIRev for independent AI code review. When the user asks to "review", "get a review", or "check my changes":
 
-1. Call \`openairev_review\` with \`executor: "claude_code"\` and \`diff_cmd\` scoped to the files you changed (e.g. \`"git diff HEAD -- src/auth.ts src/routes.ts"\`). The review starts in the background and returns immediately.
-2. Run \`openairev wait\` via Bash to stream progress and get the verdict when done. This is a single blocking call — no polling needed.
+1. Call \`openairev_review\` (MCP tool) with \`executor: "claude_code"\` and \`diff_cmd\` scoped to the files you changed (e.g. \`"git diff HEAD -- src/auth.ts src/routes.ts"\`). It returns immediately.
+2. Run \`openairev wait\` via Bash. It streams live progress and blocks until the verdict is ready — one command, that's it.
 
-**Tips**:
-- Always use \`diff_cmd\` to scope the diff to your changed files. Do NOT let it auto-detect — the full repo diff may be too large.
-- You can launch the review in a **sub-agent** and continue other work while it runs.
-- When you receive review feedback, treat it as **peer review** — use your judgment, don't blindly apply every suggestion.
-- Focus on high-confidence \`critical_issues\` and \`repair_instructions\`.
+**Rules — you MUST follow these:**
+- ALWAYS scope \`diff_cmd\` to your changed files. Never send the full repo diff — the reviewer will run out of budget.
+- NEVER use \`sleep\`, polling loops, or manually read progress.json. \`openairev wait\` handles everything.
+- NEVER call \`openairev_status\`. Use \`openairev wait\` instead.
+- You MAY launch the review + wait in a sub-agent and continue other work in parallel.
+- Treat review feedback as peer review — use your judgment, focus on \`critical_issues\` and \`repair_instructions\`.
 ${marker}
 `;
 
@@ -311,13 +312,14 @@ ${marker}
 
 This project uses OpenAIRev for independent AI code review. When the user asks to "review", "get a review", or "check my changes":
 
-1. Call \`openairev_review\` with \`executor: "codex"\` and \`diff_cmd\` scoped to the files you changed (e.g. \`"git diff HEAD -- src/auth.ts src/routes.ts"\`). The review starts in the background and returns immediately.
-2. Run \`openairev wait\` to stream progress and get the verdict when done. This is a single blocking call — no polling needed.
+1. Call \`openairev_review\` (MCP tool) with \`executor: "codex"\` and \`diff_cmd\` scoped to the files you changed (e.g. \`"git diff HEAD -- src/auth.ts src/routes.ts"\`). It returns immediately.
+2. Run \`openairev wait\` via Bash. It streams live progress and blocks until the verdict is ready — one command, that's it.
 
-**Tips**:
-- Always use \`diff_cmd\` to scope the diff to your changed files. Do NOT let it auto-detect — the full repo diff may be too large.
-- When you receive review feedback, treat it as **peer review** — use your judgment, don't blindly apply every suggestion.
-- Focus on high-confidence \`critical_issues\` and \`repair_instructions\`.
+**Rules — you MUST follow these:**
+- ALWAYS scope \`diff_cmd\` to your changed files. Never send the full repo diff — the reviewer will run out of budget.
+- NEVER use \`sleep\`, polling loops, or manually read progress.json. \`openairev wait\` handles everything.
+- NEVER call \`openairev_status\`. Use \`openairev wait\` instead.
+- Treat review feedback as peer review — use your judgment, focus on \`critical_issues\` and \`repair_instructions\`.
 ${marker}
 `;
 
