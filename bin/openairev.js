@@ -58,6 +58,7 @@ program
 program
   .command('wait')
   .description('Wait for a background review to finish, streaming progress')
+  .option('--file <path>', 'Path to progress.json (auto-detected from .openairev/)')
   .action(waitCommand);
 
 program.parse();

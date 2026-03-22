@@ -1,9 +1,11 @@
 import { ClaudeCodeAdapter } from './claude-code.js';
 import { CodexAdapter } from './codex.js';
+import { MockReviewerAdapter } from './mock-reviewer.js';
 
 const ADAPTERS = {
   claude_code: ClaudeCodeAdapter,
   codex: CodexAdapter,
+  mock: MockReviewerAdapter,
 };
 
 export function createAdapter(agentName, config, { cwd } = {}) {

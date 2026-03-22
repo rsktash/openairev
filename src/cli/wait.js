@@ -1,47 +1,34 @@
-import { readFileSync, existsSync, watchFile, unwatchFile } from 'fs';
+import { readFileSync, existsSync } from 'fs';
 import { join } from 'path';
+import { getConfigDir } from '../config/config-loader.js';
 
-export async function waitCommand() {
-  const cwd = process.cwd();
-  const progressFile = join(cwd, '.openairev', 'progress.json');
+export async function waitCommand(options) {
+  const progressFile = options.file || join(getConfigDir(), 'progress.json');
 
   if (!existsSync(progressFile)) {
     console.log('No review in progress. Call openairev_review first.');
     process.exit(1);
   }
 
-  // Check if already done
-  const initial = readProgress(progressFile);
-  if (initial?.status === 'completed' || initial?.status === 'error') {
-    printResult(initial);
-    return;
-  }
-
-  // Watch for changes
   let lastLen = 0;
+
   return new Promise((resolve) => {
-    const check = () => {
+    const timer = setInterval(() => {
       const data = readProgress(progressFile);
       if (!data) return;
 
-      // Print new progress lines
       const lines = data.progress || [];
-      if (lines.length > lastLen) {
-        for (let i = lastLen; i < lines.length; i++) {
-          console.log(`  ${lines[i]}`);
-        }
-        lastLen = lines.length;
+      for (let i = lastLen; i < lines.length; i++) {
+        console.log(`  ${lines[i]}`);
       }
+      lastLen = lines.length;
 
       if (data.status === 'completed' || data.status === 'error') {
-        unwatchFile(progressFile);
+        clearInterval(timer);
         printResult(data);
         resolve();
       }
-    };
-
-    watchFile(progressFile, { interval: 1000 }, check);
-    check(); // initial check
+    }, 2000);
   });
 }
 

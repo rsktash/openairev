@@ -2,6 +2,7 @@ import { readFileSync } from 'fs';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import { exec } from './exec-helper.js';
+import { createClaudeSummarizer } from './stream-summarizer.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -16,8 +17,20 @@ export class ClaudeCodeAdapter {
     this.sessionName = id;
   }
 
-  async run(prompt, { useSchema = false, schemaFile = 'verdict-schema.json', continueSession = false, sessionName = null } = {}) {
-    const args = ['-p', prompt, '--output-format', 'json'];
+  async run(prompt, {
+    useSchema = false,
+    schemaFile = 'verdict-schema.json',
+    continueSession = false,
+    sessionName = null,
+    stream = false,
+  } = {}) {
+    const args = ['-p', prompt];
+
+    if (stream) {
+      args.push('--output-format', 'stream-json', '--verbose', '--include-partial-messages');
+    } else {
+      args.push('--output-format', 'json');
+    }
 
     if (useSchema) {
       const schemaPath = join(__dirname, '../config', schemaFile);
@@ -32,7 +45,21 @@ export class ClaudeCodeAdapter {
       this.sessionName = sessionName;
     }
 
-    const result = await exec(this.cmd, args);
+    const summarizer = stream ? createClaudeSummarizer({
+      reviewerName: stream.reviewerName || 'claude_code',
+      tty: stream.tty !== false,
+      onProgress: stream.onProgress,
+    }) : undefined;
+
+    const result = await exec(this.cmd, args, { onData: summarizer, cwd: this.cwd });
+
+    if (stream) {
+      return parseClaudeStreamOutput(result.stdout, {
+        progress: summarizer?.getProgress() || [],
+        fallbackSessionId: this.sessionName,
+      });
+    }
+
     try {
       const parsed = JSON.parse(result.stdout);
       if (!this.sessionName && parsed.session_id) {
@@ -42,5 +69,95 @@ export class ClaudeCodeAdapter {
     } catch {
       return { raw: result.stdout, raw_output: result.stdout, error: 'Failed to parse JSON output' };
     }
+  }
+}
+
+export function parseClaudeStreamOutput(stdout, { progress = [], fallbackSessionId = null } = {}) {
+  let sessionId = fallbackSessionId;
+  let assistantText = null;
+  let assistantStructuredOutput = null;
+  let resultText = null;
+  let structuredOutput = null;
+  let resultError = null;
+
+  for (const line of stdout.split('\n')) {
+    if (!line.trim()) continue;
+
+    let event;
+    try {
+      event = JSON.parse(line);
+    } catch {
+      continue;
+    }
+
+    if (!sessionId && event.session_id) {
+      sessionId = event.session_id;
+    }
+
+    if (event.type === 'assistant') {
+      const text = extractAssistantText(event);
+      if (text) assistantText = text;
+      const toolInput = extractStructuredToolInput(event);
+      if (toolInput) assistantStructuredOutput = toolInput;
+      if (event.error) resultError = event.error;
+    }
+
+    if (event.type === 'result') {
+      if (event.structured_output && typeof event.structured_output === 'object') {
+        structuredOutput = event.structured_output;
+      }
+      if (typeof event.result === 'string' && event.result.trim()) {
+        resultText = event.result;
+      }
+      if (event.is_error) {
+        resultError = event.result || resultError || 'Claude review failed';
+      }
+    }
+  }
+
+  const finalText = resultText || assistantText;
+  const parsed = tryParseJson(finalText);
+  const verdict = structuredOutput || assistantStructuredOutput || parsed;
+
+  if (resultError && !verdict) {
+    return {
+      raw: stdout,
+      raw_output: stdout,
+      progress,
+      session_id: sessionId,
+      error: resultError,
+    };
+  }
+
+  return {
+    result: verdict || finalText,
+    raw_output: stdout,
+    progress,
+    session_id: sessionId,
+  };
+}
+
+function extractAssistantText(event) {
+  const parts = event.message?.content;
+  if (!Array.isArray(parts)) return null;
+  return parts
+    .filter((part) => part?.type === 'text' && typeof part.text === 'string')
+    .map((part) => part.text)
+    .join('');
+}
+
+function extractStructuredToolInput(event) {
+  const parts = event.message?.content;
+  if (!Array.isArray(parts)) return null;
+  const toolUse = parts.find((part) => part?.type === 'tool_use' && part.name === 'StructuredOutput');
+  return toolUse?.input && typeof toolUse.input === 'object' ? toolUse.input : null;
+}
+
+function tryParseJson(text) {
+  if (!text || typeof text !== 'string') return null;
+  try {
+    return JSON.parse(text);
+  } catch {
+    return null;
   }
 }

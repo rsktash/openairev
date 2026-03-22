@@ -1,6 +1,6 @@
 {
   "name": "openairev",
-  "version": "0.3.5",
+  "version": "0.3.6",
   "description": "Cross-model AI code reviewer — independent review for AI-assisted coding workflows",
   "type": "module",
   "bin": {
@@ -13,7 +13,8 @@
   ],
   "scripts": {
     "start": "node bin/openairev.js",
-    "test": "node --test src/**/*.test.js"
+    "test": "node --test src/**/*.test.js",
+    "smoke:mcp": "node scripts/mcp-smoke.mjs"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.27.1",

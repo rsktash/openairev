@@ -90,7 +90,7 @@ server.tool(
     return {
       content: [{
         type: 'text',
-        text: `Review started. Reviewer: ${reviewerName}\n\nRun \`openairev wait\` via Bash to stream progress and get the verdict when done.`,
+        text: `Review started. Reviewer: ${reviewerName}\nProgress file: ${PROGRESS_FILE}\n\nRun \`openairev wait\` from ${cwd} or read ${PROGRESS_FILE} directly to stream progress and get the verdict.`,
       }],
     };
   }
@@ -164,6 +164,8 @@ server.tool(
 
 function writeProgress(data) {
   try {
+    data.cwd = cwd;
+    data.progress_file = PROGRESS_FILE;
     writeFileSync(PROGRESS_FILE, JSON.stringify(data, null, 2));
   } catch { /* non-critical */ }
 }

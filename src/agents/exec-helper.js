@@ -2,10 +2,11 @@ import { spawn } from 'child_process';
 
 const MAX_BUFFER = 10 * 1024 * 1024;
 
-export function exec(cmd, args, { onData } = {}) {
+export function exec(cmd, args, { onData, cwd } = {}) {
   return new Promise((resolve, reject) => {
     const child = spawn(cmd, args, {
       timeout: 300_000,
+      cwd,
     });
 
     const stdoutChunks = [];

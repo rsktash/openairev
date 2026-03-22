@@ -1,7 +1,5 @@
 node_modules/
-.openairev/credentials.json
-.openairev/sessions/
-.openairev/chains/
-.openairev/tmp/
+.openairev/
 .DS_Store
 *.log
+.mcp.json
