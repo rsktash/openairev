@@ -8,13 +8,14 @@ import { getDiff } from '../tools/git-tools.js';
 import { runToolGates } from '../tools/tool-runner.js';
 import { runReview } from '../review/review-runner.js';
 import { createSession, saveSession } from '../session/session-manager.js';
+import { VERSION } from '../version.js';
 
 const cwd = process.cwd();
 const config = loadConfig(cwd);
 
 const server = new McpServer({
   name: 'openairev',
-  version: '0.3.0',
+  version: VERSION,
 });
 
 server.tool(

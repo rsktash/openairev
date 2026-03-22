@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 
 import { Command } from 'commander';
+import { VERSION } from '../src/version.js';
 import { initCommand } from '../src/cli/init.js';
 import { reviewCommand } from '../src/cli/review.js';
 import { resumeCommand } from '../src/cli/resume.js';
@@ -12,7 +13,7 @@ const program = new Command();
 program
   .name('openairev')
   .description('OpenAIRev — cross-model AI code reviewer')
-  .version('0.3.0');
+  .version(VERSION);
 
 program
   .command('init')
