@@ -5,7 +5,7 @@ const MAX_BUFFER = 10 * 1024 * 1024;
 export function exec(cmd, args, { onData, cwd, signal } = {}) {
   return new Promise((resolve, reject) => {
     const child = spawn(cmd, args, {
-      timeout: 300_000,
+      timeout: 600_000,
       cwd,
     });
 
