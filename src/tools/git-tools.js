@@ -34,6 +34,38 @@ export function getDiff(ref, { context = 1, excludes = EXCLUDE_PATTERNS } = {}) 
   return '';
 }
 
+/**
+ * Check if there are changes without reading the diff content.
+ * Uses git diff --quiet (exit code only, no output).
+ */
+export function hasDiff(ref) {
+  try {
+    if (ref) {
+      execFileSync('git', ['diff', '--quiet', ref]);
+      return false;
+    }
+    // Try staged first
+    try {
+      execFileSync('git', ['diff', '--quiet', '--cached']);
+      // exit 0 = no staged changes, try unstaged
+      execFileSync('git', ['diff', '--quiet']);
+      return false; // no changes at all
+    } catch {
+      return true; // either staged or unstaged has changes
+    }
+  } catch {
+    return true; // exit 1 = has changes
+  }
+}
+
+/**
+ * Build a diff command string for the reviewer to run.
+ */
+export function buildDiffCmd(ref) {
+  if (ref) return `git diff ${ref}`;
+  return 'git diff --staged || git diff';
+}
+
 function gitExec(args) {
   try {
     return execFileSync('git', args, { encoding: 'utf-8', maxBuffer: 10 * 1024 * 1024 });

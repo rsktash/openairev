@@ -1,7 +1,7 @@
 import { createAdapter } from '../agents/registry.js';
 import { runReview } from '../review/review-runner.js';
 import { loadPromptFile } from '../review/prompt-loader.js';
-import { getDiff } from '../tools/git-tools.js';
+import { hasDiff, buildDiffCmd } from '../tools/git-tools.js';
 import { runToolGates } from '../tools/tool-runner.js';
 import {
   createChain, transitionTo, addRound, setArtifact,
@@ -44,7 +44,7 @@ export async function runWorkflow({
     }
   }
 
-  let currentDiff = initialDiff;
+  let hasChanges = !!initialDiff;
   let codeReviewCount = 0;
   let planReviewCount = 0;
 
@@ -140,13 +140,7 @@ export async function runWorkflow({
         const prompt = buildImplementationPrompt(chain, specRef);
         await runExecutor(executor, config, prompt, chain, cwd);
 
-        try {
-          currentDiff = getDiff(diffRef);
-        } catch {
-          currentDiff = '';
-        }
-
-        if (currentDiff?.trim()) {
+        if (hasDiff(diffRef)) {
           setArtifact(chain, 'current_diff_ref', diffRef || 'auto', cwd);
           transitionTo(chain, 'code_review', cwd);
         } else {
@@ -168,7 +162,8 @@ export async function runWorkflow({
           toolResults = runToolGates(Object.keys(tools), cwd, tools);
         }
 
-        const review = await runReviewRound(reviewerName, config, currentDiff, {
+        const reviewDiffCmd = diffRef ? `git diff ${diffRef}` : 'git diff --staged || git diff';
+        const review = await runReviewRound(reviewerName, config, reviewDiffCmd, {
           kind: 'code_review', chain, specRef, cwd,
         });
 
@@ -205,14 +200,7 @@ export async function runWorkflow({
         const feedback = buildFeedback(lastVerdict, cwd);
         await runExecutor(executor, config, feedback, chain, cwd);
 
-        try {
-          currentDiff = getDiff(diffRef);
-        } catch (e) {
-          closeChain(chain, 'error', cwd);
-          return { chain, status: 'error', message: `Failed to get diff: ${e.message}` };
-        }
-
-        if (!currentDiff?.trim()) {
+        if (!hasDiff(diffRef)) {
           closeChain(chain, 'error', cwd);
           return { chain, status: 'error', message: 'No changes after fix attempt' };
         }
@@ -255,15 +243,16 @@ async function runExecutor(executor, config, prompt, chain, cwd) {
   return { output: result?.result || result?.raw || null, session_id: sessionId };
 }
 
-async function runReviewRound(reviewerName, config, content, { kind, chain, specRef, cwd }) {
+async function runReviewRound(reviewerName, config, input, { kind, chain, specRef, cwd }) {
   const promptFile = kind === 'plan_review' ? 'plan-reviewer.md' : 'reviewer.md';
   const sessionId = getReviewerSession(chain, kind);
 
-  return runReview(content, {
+  return runReview(input, {
     config, reviewerName, promptFile,
     taskDescription: chain.task?.user_request,
     specRef: specRef || chain.task?.spec_ref,
     cwd, sessionId, stream: true,
+    inputMode: kind === 'plan_review' ? 'inline' : 'diff_cmd',
   });
 }
 

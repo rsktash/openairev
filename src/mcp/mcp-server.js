@@ -6,7 +6,7 @@ import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import { z } from 'zod';
 import { loadConfig, getReviewer } from '../config/config-loader.js';
-import { getDiff } from '../tools/git-tools.js';
+import { getDiff, hasDiff, buildDiffCmd } from '../tools/git-tools.js';
 import { runToolGates } from '../tools/tool-runner.js';
 import { runReview } from '../review/review-runner.js';
 import { createSession, saveSession } from '../session/session-manager.js';
@@ -29,28 +29,19 @@ server.tool(
   'TRIGGER: Use this tool when the user says "review", "review my code", "get a review", "check my changes", "openairev", or asks for independent/cross-model code review. Sends current code changes to a DIFFERENT AI model for independent review. The review starts in the background and returns immediately. After calling this, run `openairev wait` via Bash to stream progress and get the verdict — one blocking call, no polling needed.',
   {
     executor: z.string().optional().describe('Which agent wrote the code (claude_code or codex). If you are Claude Code, set this to "claude_code". If you are Codex, set this to "codex".'),
-    diff: z.string().optional().describe('The diff to review. IMPORTANT: Pass only the diff for files YOU changed, not the entire repo. Use `git diff HEAD -- file1 file2` to scope it. If omitted, auto-detects from git which may be too large.'),
-    diff_cmd: z.string().optional().describe('The git command used to get the diff, e.g. "git diff HEAD -- src/auth.ts src/routes.ts". If provided instead of diff, the server will run this command to get the diff.'),
+    diff_cmd: z.string().optional().describe('The git diff command for the reviewer to run, e.g. "git diff HEAD -- src/auth.ts src/routes.ts". The reviewer runs in the same repo and executes this itself. If omitted, auto-detects staged or unstaged changes.'),
     task_description: z.string().optional().describe('What the code is supposed to do. Used for requirement checking.'),
   },
-  async ({ executor, diff, diff_cmd, task_description }) => {
+  async ({ executor, diff_cmd, task_description }) => {
     const execAgent = executor || Object.keys(config.agents || {}).find(a => config.agents[a].available);
     const reviewerName = getReviewer(config, execAgent);
     if (!reviewerName) {
       return { content: [{ type: 'text', text: `No reviewer configured for executor "${execAgent}"` }] };
     }
 
-    let diffContent = diff;
-    if (!diffContent && diff_cmd) {
-      try {
-        const { execSync } = await import('child_process');
-        diffContent = execSync(diff_cmd, { encoding: 'utf-8', maxBuffer: 10 * 1024 * 1024, cwd });
-      } catch (e) {
-        return { content: [{ type: 'text', text: `diff_cmd failed: ${e.message}` }] };
-      }
-    }
-    if (!diffContent) diffContent = getDiff();
-    if (!diffContent?.trim()) {
+    const reviewDiffCmd = diff_cmd || buildDiffCmd();
+
+    if (!hasDiff()) {
       return { content: [{ type: 'text', text: 'No changes found to review.' }] };
     }
 
@@ -62,7 +53,7 @@ server.tool(
     };
 
     activeAbort = new AbortController();
-    activeReview = runReview(diffContent, {
+    activeReview = runReview(reviewDiffCmd, {
       config,
       reviewerName,
       taskDescription: task_description,

@@ -1,10 +1,9 @@
 import { mkdirSync, writeFileSync } from 'fs';
 import { join } from 'path';
 import { createAdapter } from '../agents/registry.js';
-import { stageInput, buildInputReference, compactDiff, getReviewerBudget, estimateTokens } from './input-stager.js';
 import { loadPromptFile } from './prompt-loader.js';
 
-export async function runReview(content, {
+export async function runReview(input, {
   config,
   reviewerName,
   promptFile = 'reviewer.md',
@@ -14,6 +13,7 @@ export async function runReview(content, {
   sessionId = null,
   stream = false,
   signal,
+  inputMode = 'diff_cmd',
 }) {
   const adapter = createAdapter(reviewerName, config, { cwd });
 
@@ -23,13 +23,6 @@ export async function runReview(content, {
 
   const reviewerPrompt = loadPromptFile(promptFile, cwd);
 
-  // Compact diff if it exceeds the reviewer's context budget
-  const budget = getReviewerBudget(reviewerName);
-  const { content: compactedContent, compacted, stats } = compactDiff(content, { maxTokens: budget });
-
-  const staged = stageInput(compactedContent, { cwd });
-  const inputRef = buildInputReference(staged);
-
   let prompt = reviewerPrompt;
   if (taskDescription) {
     prompt = `Task: ${taskDescription}\n\n${prompt}`;
@@ -37,7 +30,12 @@ export async function runReview(content, {
   if (specRef) {
     prompt += `\n\nSpec reference: ${specRef}\nRead the spec file for requirements and acceptance criteria.`;
   }
-  prompt = `${prompt}${inputRef}`;
+
+  if (inputMode === 'diff_cmd') {
+    prompt += `\n\n--- CHANGES TO REVIEW ---\nRun this command to get the diff:\n\`${input}\`\n\nReview the changed files. You are in the same repo as the executor — run the diff command yourself, read the files, and produce your verdict.`;
+  } else {
+    prompt += `\n\n--- CONTENT TO REVIEW ---\n${input}`;
+  }
 
   const schemaFile = promptFile === 'plan-reviewer.md' ? 'plan-verdict-schema.json' : 'verdict-schema.json';
 
@@ -65,26 +63,12 @@ export async function runReview(content, {
     session_id: adapter.sessionName || adapter.sessionId,
   };
 
-  if (compacted) {
-    reviewResult.context_stats = stats;
-  }
-
-  // Mark partial reviews so callers know files were omitted
-  if (compacted && stats.filesDropped > 0 && verdict) {
-    reviewResult.partial = true;
-    reviewResult.partial_notice = `PARTIAL REVIEW: ${stats.filesDropped} files were omitted to fit the reviewer's context budget (${stats.droppedFiles.join(', ')}). Re-run with a smaller diff to cover them.`;
-  }
-
-  // Diagnose null verdicts — check for explicit errors before blaming context budget
   if (!verdict) {
     const explicitError = result?.error;
     if (explicitError) {
       reviewResult.error = `Reviewer (${reviewerName}) failed: ${explicitError}`;
     } else {
-      reviewResult.error = `Reviewer (${reviewerName}) produced no verdict. ` +
-        `Diff was ~${stats.originalTokens} tokens` +
-        (compacted ? `, compacted to ~${stats.finalTokens} tokens (${stats.filesDropped} files dropped)` : '') +
-        `. Possible causes: context budget exceeded, auth failure, or schema mismatch. Check .openairev/logs/ for details.`;
+      reviewResult.error = `Reviewer (${reviewerName}) produced no verdict. Possible causes: context budget exceeded, auth failure, or schema mismatch. Check .openairev/logs/ for details.`;
     }
   }
 

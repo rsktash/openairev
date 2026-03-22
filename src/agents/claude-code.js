@@ -25,7 +25,7 @@ export class ClaudeCodeAdapter {
     stream = false,
     signal,
   } = {}) {
-    const args = ['-p', prompt];
+    const args = ['-p', prompt, '--max-budget-usd', '5'];
 
     if (stream) {
       args.push('--output-format', 'stream-json', '--verbose', '--include-partial-messages');

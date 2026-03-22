@@ -1,7 +1,6 @@
 import chalk from 'chalk';
-import { readFileSync } from 'fs';
 import { loadConfig, getReviewer, getMaxIterations } from '../config/config-loader.js';
-import { getDiff } from '../tools/git-tools.js';
+import { hasDiff, buildDiffCmd } from '../tools/git-tools.js';
 import { runReview } from '../review/review-runner.js';
 import { runWorkflow } from '../orchestrator/orchestrator.js';
 import { createSession, saveSession } from '../session/session-manager.js';
@@ -37,13 +36,17 @@ export async function reviewCommand(options) {
     console.log(`  Mode:        ${chalk.cyan('implement → review loop')}`);
   }
 
-  let diff = '';
+  let diffCmd = '';
+  let hasChanges = false;
   if (options.file) {
     console.log(`  Source:      ${chalk.cyan(options.file)}`);
-    diff = readFileSync(options.file, 'utf-8');
+    diffCmd = `cat ${JSON.stringify(options.file)}`;
+    hasChanges = true;
   } else {
-    try { diff = getDiff(options.diff); } catch { /* no diff yet is ok for workflow mode */ }
-    if (diff?.trim()) console.log(`  Diff lines:  ${chalk.cyan(diff.split('\n').length)}`);
+    const ref = options.diff || '';
+    try { hasChanges = hasDiff(ref); } catch { /* no diff yet is ok for workflow mode */ }
+    diffCmd = buildDiffCmd(ref);
+    if (hasChanges) console.log(`  Diff cmd:    ${chalk.cyan(diffCmd)}`);
   }
 
   if (options.specRef) console.log(`  Spec:        ${chalk.cyan(options.specRef)}`);
@@ -56,13 +59,13 @@ export async function reviewCommand(options) {
   console.log('');
 
   if (options.once) {
-    if (!diff?.trim()) {
+    if (!hasChanges) {
       console.log(chalk.yellow('No changes found. Stage some changes or specify --diff <ref>.'));
       process.exit(0);
     }
     try {
       console.log(chalk.dim('Starting review...\n'));
-      const review = await runReview(diff, { config, reviewerName, cwd, stream: true });
+      const review = await runReview(diffCmd, { config, reviewerName, cwd, stream: true });
 
       const session = createSession({ executor, reviewer: reviewerName, diff_ref: options.diff || 'auto' });
       session.iterations.push({ round: 1, review, timestamp: new Date().toISOString() });
@@ -83,7 +86,7 @@ export async function reviewCommand(options) {
   } else {
     try {
       const result = await runWorkflow({
-        config, executor, reviewerName, maxRounds, diff, diffRef: options.diff,
+        config, executor, reviewerName, maxRounds, diffRef: options.diff,
         taskDescription: options.task, specRef: options.specRef, tools: config.tools,
         cwd, skipAnalyze, skipPlan,
         onStageChange: (stage) => console.log(chalk.bold(`\n[${stageLabel(stage)}]\n`)),
