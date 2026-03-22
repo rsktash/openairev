@@ -215,6 +215,24 @@ function buildToolsConfig(answers) {
   return tools;
 }
 
+function upsertMarkedSection(filePath, marker, content, label) {
+  if (existsSync(filePath)) {
+    const existing = readFileSync(filePath, 'utf-8');
+    if (existing.includes(marker)) {
+      const regex = new RegExp(`${marker}[\\s\\S]*?${marker}`, 'g');
+      const updated = existing.replace(regex, content);
+      writeFileSync(filePath, updated);
+      console.log(`${chalk.green('✓')} OpenAIRev instructions updated in ${label}`);
+    } else {
+      writeFileSync(filePath, existing + '\n' + content + '\n');
+      console.log(`${chalk.green('✓')} OpenAIRev instructions appended to ${label}`);
+    }
+  } else {
+    writeFileSync(filePath, content + '\n');
+    console.log(`${chalk.green('✓')} ${label} created with OpenAIRev instructions`);
+  }
+}
+
 function copyIfMissing(src, dest) {
   if (!existsSync(dest) && existsSync(src)) {
     copyFileSync(src, dest);
@@ -251,16 +269,7 @@ This project uses OpenAIRev for independent AI code review. When the user asks t
 ${marker}
 `;
 
-  if (existsSync(claudeMdPath)) {
-    const existing = readFileSync(claudeMdPath, 'utf-8');
-    if (!existing.includes(marker)) {
-      writeFileSync(claudeMdPath, existing + '\n' + instructions.trim() + '\n');
-      console.log(`${chalk.green('✓')} OpenAIRev instructions appended to CLAUDE.md`);
-    }
-  } else {
-    writeFileSync(claudeMdPath, instructions.trim() + '\n');
-    console.log(`${chalk.green('✓')} CLAUDE.md created with OpenAIRev instructions`);
-  }
+  upsertMarkedSection(claudeMdPath, marker, instructions.trim(), 'CLAUDE.md');
 }
 
 /**
@@ -314,14 +323,5 @@ This project uses OpenAIRev for independent AI code review. When the user asks t
 ${marker}
 `;
 
-  if (existsSync(agentsMdPath)) {
-    const existing = readFileSync(agentsMdPath, 'utf-8');
-    if (!existing.includes(marker)) {
-      writeFileSync(agentsMdPath, existing + '\n' + instructions.trim() + '\n');
-      console.log(`${chalk.green('✓')} OpenAIRev instructions appended to AGENTS.md`);
-    }
-  } else {
-    writeFileSync(agentsMdPath, instructions.trim() + '\n');
-    console.log(`${chalk.green('✓')} AGENTS.md created with OpenAIRev instructions`);
-  }
+  upsertMarkedSection(agentsMdPath, marker, instructions.trim(), 'AGENTS.md');
 }
