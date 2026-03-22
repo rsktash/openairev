@@ -13,6 +13,7 @@ export async function runReview(content, {
   cwd = process.cwd(),
   sessionId = null,
   stream = false,
+  signal,
 }) {
   const adapter = createAdapter(reviewerName, config, { cwd });
 
@@ -41,6 +42,7 @@ export async function runReview(content, {
     continueSession: !!sessionId,
     sessionName: sessionId ? undefined : `review-${Date.now()}`,
     stream: stream ? { reviewerName, tty: stream === true, onProgress: stream.onProgress } : false,
+    signal,
   });
 
   const verdict = extractVerdict(result);

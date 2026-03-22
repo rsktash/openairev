@@ -23,7 +23,7 @@ export async function waitCommand(options) {
       }
       lastLen = lines.length;
 
-      if (data.status === 'completed' || data.status === 'error') {
+      if (data.status === 'completed' || data.status === 'error' || data.status === 'cancelled') {
         clearInterval(timer);
         printResult(data);
         resolve();
@@ -41,6 +41,10 @@ function readProgress(path) {
 }
 
 function printResult(data) {
+  if (data.status === 'cancelled') {
+    console.log('\nReview cancelled.');
+    process.exit(1);
+  }
   if (data.status === 'error') {
     console.log(`\nReview failed: ${data.error}`);
     process.exit(1);

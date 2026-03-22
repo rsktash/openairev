@@ -94,6 +94,15 @@ Options:
   --dry-run               Show what would happen without executing
 ```
 
+### `openairev wait`
+
+Stream review progress and block until the verdict is ready.
+
+```
+Options:
+  --file <path>  Path to progress.json (auto-detected from .openairev/)
+```
+
 ### `openairev resume`
 
 Resume an active or blocked workflow. If blocked on `awaiting_user`, prompts for answers to pending questions.
@@ -213,6 +222,7 @@ Restart your agent CLI after adding.
 | Tool | Description |
 |------|-------------|
 | `openairev_review` | Start a review in the background. Returns immediately. |
+| `openairev_cancel` | Cancel the currently running review. |
 | `openairev_status` | Check review progress (prefer `openairev wait` instead). |
 | `openairev_run_tests` | Run project test suite |
 | `openairev_run_lint` | Run linter |
@@ -224,6 +234,7 @@ The review runs asynchronously so you can see progress:
 
 1. Call `openairev_review` → starts review in background, returns immediately
 2. Run `openairev wait` via Bash → streams progress (files read, commands run, tokens) and outputs the verdict when done
+3. If stuck, call `openairev_cancel` to kill the running review and retry with a smaller diff
 
 One MCP call + one Bash call. No polling, no sleep loops. The AI can also launch the review in a sub-agent and continue other work while it runs.
 

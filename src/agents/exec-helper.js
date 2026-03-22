@@ -2,12 +2,23 @@ import { spawn } from 'child_process';
 
 const MAX_BUFFER = 10 * 1024 * 1024;
 
-export function exec(cmd, args, { onData, cwd } = {}) {
+export function exec(cmd, args, { onData, cwd, signal } = {}) {
   return new Promise((resolve, reject) => {
     const child = spawn(cmd, args, {
       timeout: 300_000,
       cwd,
     });
+
+    if (signal) {
+      if (signal.aborted) {
+        child.kill();
+        return reject(new Error(`${cmd} aborted`));
+      }
+      signal.addEventListener('abort', () => {
+        killed = true;
+        child.kill();
+      }, { once: true });
+    }
 
     const stdoutChunks = [];
     const stderrChunks = [];
@@ -43,7 +54,9 @@ export function exec(cmd, args, { onData, cwd } = {}) {
     child.on('close', (code) => {
       const stdout = Buffer.concat(stdoutChunks).toString();
       const stderr = Buffer.concat(stderrChunks).toString();
-      if (killed) {
+      if (signal?.aborted) {
+        reject(new Error(`${cmd} aborted`));
+      } else if (killed) {
         reject(new Error(`${cmd} output exceeded ${MAX_BUFFER} bytes`));
       } else if (code !== 0 && !stdout) {
         reject(new Error(`${cmd} failed (exit ${code}): ${stderr}`));

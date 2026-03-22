@@ -264,6 +264,7 @@ This project uses OpenAIRev for independent AI code review. When the user asks t
 - ALWAYS scope \`diff_cmd\` to your changed files. Never send the full repo diff — the reviewer will run out of budget.
 - NEVER use \`sleep\`, polling loops, or manually read progress.json. \`openairev wait\` handles everything.
 - NEVER call \`openairev_status\`. Use \`openairev wait\` instead.
+- If a review is stuck or you want to retry, call \`openairev_cancel\` to kill the running review, then start a new one.
 - You MAY launch the review + wait in a sub-agent and continue other work in parallel.
 - Treat review feedback as peer review — use your judgment, focus on \`critical_issues\` and \`repair_instructions\`.
 ${marker}
@@ -319,6 +320,7 @@ This project uses OpenAIRev for independent AI code review. When the user asks t
 - ALWAYS scope \`diff_cmd\` to your changed files. Never send the full repo diff — the reviewer will run out of budget.
 - NEVER use \`sleep\`, polling loops, or manually read progress.json. \`openairev wait\` handles everything.
 - NEVER call \`openairev_status\`. Use \`openairev wait\` instead.
+- If a review is stuck or you want to retry, call \`openairev_cancel\` to kill the running review, then start a new one.
 - Treat review feedback as peer review — use your judgment, focus on \`critical_issues\` and \`repair_instructions\`.
 ${marker}
 `;

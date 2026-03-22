@@ -16,7 +16,7 @@ export class CodexAdapter {
     this.sessionId = id;
   }
 
-  async run(prompt, { useSchema = false, schemaFile = 'verdict-schema.json', continueSession = false, sessionName = null, stream = false } = {}) {
+  async run(prompt, { useSchema = false, schemaFile = 'verdict-schema.json', continueSession = false, sessionName = null, stream = false, signal } = {}) {
     const args = ['exec'];
 
     if (continueSession && this.sessionId) {
@@ -36,7 +36,7 @@ export class CodexAdapter {
       tty: stream.tty !== false,
       onProgress: stream.onProgress,
     }) : undefined;
-    const result = await exec(this.cmd, args, { onData: summarizer });
+    const result = await exec(this.cmd, args, { onData: summarizer, signal });
 
     try {
       const lines = result.stdout.trim().split('\n');

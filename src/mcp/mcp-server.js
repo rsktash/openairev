@@ -17,6 +17,7 @@ const config = loadConfig(cwd);
 const PROGRESS_FILE = join(cwd, '.openairev', 'progress.json');
 
 let activeReview = null;
+let activeAbort = null;
 
 const server = new McpServer({
   name: 'openairev',
@@ -60,12 +61,14 @@ server.tool(
       writeProgress({ status: 'running', reviewer: reviewerName, started: new Date().toISOString(), progress: lines, verdict: null });
     };
 
+    activeAbort = new AbortController();
     activeReview = runReview(diffContent, {
       config,
       reviewerName,
       taskDescription: task_description,
       cwd,
       stream: { onProgress },
+      signal: activeAbort.signal,
     }).then((review) => {
       const session = createSession({ executor: execAgent, reviewer: reviewerName });
       session.iterations.push({ round: 1, review, timestamp: new Date().toISOString() });
@@ -81,10 +84,13 @@ server.tool(
         executor_feedback: review.executor_feedback,
       });
       activeReview = null;
+      activeAbort = null;
       return review;
     }).catch((err) => {
-      writeProgress({ status: 'error', reviewer: reviewerName, error: err.message, progress: [], verdict: null });
+      const status = activeAbort?.signal?.aborted ? 'cancelled' : 'error';
+      writeProgress({ status, reviewer: reviewerName, error: err.message, progress: [], verdict: null });
       activeReview = null;
+      activeAbort = null;
     });
 
     return {
@@ -125,6 +131,19 @@ server.tool(
     const feedback = progress.executor_feedback || JSON.stringify(progress.verdict || {}, null, 2);
     parts.push({ type: 'text', text: feedback });
     return { content: parts };
+  }
+);
+
+server.tool(
+  'openairev_cancel',
+  'Cancel the currently running review. Use this when the review is taking too long, the diff was too large, or you want to retry with different parameters.',
+  {},
+  async () => {
+    if (!activeReview || !activeAbort) {
+      return { content: [{ type: 'text', text: 'No review is currently running.' }] };
+    }
+    activeAbort.abort();
+    return { content: [{ type: 'text', text: 'Review cancelled.' }] };
   }
 );
 

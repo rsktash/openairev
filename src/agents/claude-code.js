@@ -23,6 +23,7 @@ export class ClaudeCodeAdapter {
     continueSession = false,
     sessionName = null,
     stream = false,
+    signal,
   } = {}) {
     const args = ['-p', prompt];
 
@@ -51,7 +52,7 @@ export class ClaudeCodeAdapter {
       onProgress: stream.onProgress,
     }) : undefined;
 
-    const result = await exec(this.cmd, args, { onData: summarizer, cwd: this.cwd });
+    const result = await exec(this.cmd, args, { onData: summarizer, cwd: this.cwd, signal });
 
     if (stream) {
       return parseClaudeStreamOutput(result.stdout, {
