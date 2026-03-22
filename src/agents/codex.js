@@ -79,14 +79,14 @@ export class CodexAdapter {
         }
       }
 
-      // No verdict — build a diagnostic error from what we know
-      let error = lastError ? `Codex error: ${lastError}` : 'Codex produced no verdict.';
+      // No verdict — report what actually happened
+      const cmdCount = lines.filter(l => { try { return JSON.parse(l).type === 'item.completed' && JSON.parse(l).item?.type === 'command_execution'; } catch { return false; } }).length;
+      let error = lastError
+        ? `Codex error: ${lastError}`
+        : `Codex exited after ${cmdCount} commands without producing a verdict or turn completion event.`;
       if (lastTurn?.usage) {
         const { input_tokens, output_tokens } = lastTurn.usage;
-        error += ` Tokens used: ${input_tokens} in / ${output_tokens} out.`;
-      }
-      if (lastTurn && !lastError) {
-        error += ' Likely exhausted its turn budget exploring files before producing output.';
+        error += ` Tokens: ${input_tokens} in / ${output_tokens} out.`;
       }
 
       return { raw: result.stdout, raw_output: result.stdout, progress, session_id: this.sessionId, error };
