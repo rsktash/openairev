@@ -212,11 +212,21 @@ Restart your agent CLI after adding.
 
 | Tool | Description |
 |------|-------------|
-| `openairev_review` | Send diff to reviewer, get structured verdict |
-| `openairev_status` | Check most recent review result |
+| `openairev_review` | Start a review in the background. Returns immediately. |
+| `openairev_status` | Check review progress and get the verdict when ready. |
 | `openairev_run_tests` | Run project test suite |
 | `openairev_run_lint` | Run linter |
 | `openairev_get_diff` | Get current git diff |
+
+### Async Review Flow
+
+The review runs asynchronously so you can see progress:
+
+1. Call `openairev_review` → returns *"Review started. Call openairev_status."*
+2. Call `openairev_status` → shows live progress (files read, commands run, tokens)
+3. When done, `openairev_status` returns the full verdict and feedback
+
+This lets the executor AI (and user) see what the reviewer is doing instead of waiting blindly.
 
 ## Config
 

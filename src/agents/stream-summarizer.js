@@ -6,7 +6,7 @@ import chalk from 'chalk';
  * tty=false: collects plain-text progress lines silently.
  * Both modes always collect lines for the final summary.
  */
-export function createCodexSummarizer({ reviewerName, tty = true } = {}) {
+export function createCodexSummarizer({ reviewerName, tty = true, onProgress } = {}) {
   const seenFiles = new Set();
   const progressLines = [];
   let buffer = '';
@@ -35,7 +35,10 @@ export function createCodexSummarizer({ reviewerName, tty = true } = {}) {
   summarizer.getProgress = () => progressLines;
 
   function emit(msg, color) {
-    if (progressLines.length < 200) progressLines.push(msg);
+    if (progressLines.length < 200) {
+      progressLines.push(msg);
+      if (onProgress) onProgress(progressLines);
+    }
     if (tty) {
       const colorFn = color === 'cyan' ? chalk.cyan
         : color === 'green' ? chalk.green

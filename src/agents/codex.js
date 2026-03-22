@@ -34,6 +34,7 @@ export class CodexAdapter {
     const summarizer = stream ? createCodexSummarizer({
       reviewerName: stream.reviewerName || 'codex',
       tty: stream.tty !== false,
+      onProgress: stream.onProgress,
     }) : undefined;
     const result = await exec(this.cmd, args, { onData: summarizer });
 

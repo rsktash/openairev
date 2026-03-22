@@ -40,7 +40,7 @@ export async function runReview(content, {
     schemaFile,
     continueSession: !!sessionId,
     sessionName: sessionId ? undefined : `review-${Date.now()}`,
-    stream: stream ? { reviewerName, tty: stream === true } : false,
+    stream: stream ? { reviewerName, tty: stream === true, onProgress: stream.onProgress } : false,
   });
 
   const verdict = extractVerdict(result);

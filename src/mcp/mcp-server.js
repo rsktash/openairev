@@ -1,5 +1,7 @@
 #!/usr/bin/env node
 
+import { mkdirSync, writeFileSync, readFileSync, existsSync } from 'fs';
+import { join } from 'path';
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import { z } from 'zod';
@@ -12,6 +14,9 @@ import { VERSION } from '../version.js';
 
 const cwd = process.cwd();
 const config = loadConfig(cwd);
+const PROGRESS_FILE = join(cwd, '.openairev', 'progress.json');
+
+let activeReview = null;
 
 const server = new McpServer({
   name: 'openairev',
@@ -20,7 +25,7 @@ const server = new McpServer({
 
 server.tool(
   'openairev_review',
-  'TRIGGER: Use this tool when the user says "review", "review my code", "get a review", "check my changes", "openairev", or asks for independent/cross-model code review. Sends current code changes to a DIFFERENT AI model for independent review. Returns a structured verdict with critical issues, test gaps, risk level, confidence score, and repair instructions.',
+  'TRIGGER: Use this tool when the user says "review", "review my code", "get a review", "check my changes", "openairev", or asks for independent/cross-model code review. Sends current code changes to a DIFFERENT AI model for independent review. The review runs in the background — call openairev_status to check progress and get the verdict when ready.',
   {
     executor: z.string().optional().describe('Which agent wrote the code (claude_code or codex). If you are Claude Code, set this to "claude_code". If you are Codex, set this to "codex".'),
     diff: z.string().optional().describe('The diff to review. IMPORTANT: Pass only the diff for files YOU changed, not the entire repo. Use `git diff HEAD -- file1 file2` to scope it. If omitted, auto-detects from git which may be too large.'),
@@ -48,46 +53,78 @@ server.tool(
       return { content: [{ type: 'text', text: 'No changes found to review.' }] };
     }
 
-    const review = await runReview(diffContent, {
+    mkdirSync(join(cwd, '.openairev'), { recursive: true });
+    writeProgress({ status: 'running', reviewer: reviewerName, started: new Date().toISOString(), progress: [], verdict: null });
+
+    const onProgress = (lines) => {
+      writeProgress({ status: 'running', reviewer: reviewerName, started: new Date().toISOString(), progress: lines, verdict: null });
+    };
+
+    activeReview = runReview(diffContent, {
       config,
       reviewerName,
       taskDescription: task_description,
       cwd,
-      stream: 'silent',
+      stream: { onProgress },
+    }).then((review) => {
+      const session = createSession({ executor: execAgent, reviewer: reviewerName });
+      session.iterations.push({ round: 1, review, timestamp: new Date().toISOString() });
+      session.final_verdict = review.verdict;
+      session.status = 'completed';
+      saveSession(session, cwd);
+
+      writeProgress({
+        status: 'completed',
+        reviewer: reviewerName,
+        progress: review.progress || [],
+        verdict: review.verdict,
+        executor_feedback: review.executor_feedback,
+      });
+      activeReview = null;
+      return review;
+    }).catch((err) => {
+      writeProgress({ status: 'error', reviewer: reviewerName, error: err.message, progress: [], verdict: null });
+      activeReview = null;
     });
 
-    const session = createSession({ executor: execAgent, reviewer: reviewerName });
-    session.iterations.push({ round: 1, review, timestamp: new Date().toISOString() });
-    session.final_verdict = review.verdict;
-    session.status = 'completed';
-    saveSession(session, cwd);
-
-    const parts = [];
-
-    if (review.progress?.length > 0) {
-      parts.push({ type: 'text', text: `Review progress:\n${review.progress.map(l => `  ${l}`).join('\n')}` });
-    }
-
-    const feedback = review.executor_feedback || JSON.stringify(review.verdict || review, null, 2);
-    parts.push({ type: 'text', text: feedback });
-
-    return { content: parts };
+    return {
+      content: [{
+        type: 'text',
+        text: `Review started. Reviewer: ${reviewerName}\n\nCall openairev_status to check progress and get the verdict when ready.`,
+      }],
+    };
   }
 );
 
 server.tool(
   'openairev_status',
-  'Get the status and verdict of the most recent OpenAIRev review session.',
+  'Check the progress and result of the current or most recent OpenAIRev review. Call this after openairev_review to see what the reviewer is doing and get the verdict when ready.',
   {},
   async () => {
-    const { listSessions } = await import('../session/session-manager.js');
-    const sessions = listSessions(cwd, 1);
-    if (sessions.length === 0) {
-      return { content: [{ type: 'text', text: 'No review sessions found.' }] };
+    const progress = readProgress();
+    if (!progress) {
+      return { content: [{ type: 'text', text: 'No review in progress. Call openairev_review first.' }] };
     }
-    const last = sessions[0];
-    const text = JSON.stringify({ id: last.id, status: last.status, verdict: last.final_verdict, created: last.created }, null, 2);
-    return { content: [{ type: 'text', text }] };
+
+    if (progress.status === 'running') {
+      const lines = progress.progress || [];
+      const text = lines.length > 0
+        ? `Review in progress (reviewer: ${progress.reviewer}):\n${lines.map(l => `  ${l}`).join('\n')}\n\nStill running... Call openairev_status again in a few seconds.`
+        : `Review in progress (reviewer: ${progress.reviewer}). Started: ${progress.started}\n\nCall openairev_status again in a few seconds.`;
+      return { content: [{ type: 'text', text }] };
+    }
+
+    if (progress.status === 'error') {
+      return { content: [{ type: 'text', text: `Review failed: ${progress.error}` }] };
+    }
+
+    const parts = [];
+    if (progress.progress?.length > 0) {
+      parts.push({ type: 'text', text: `Review complete:\n${progress.progress.map(l => `  ${l}`).join('\n')}` });
+    }
+    const feedback = progress.executor_feedback || JSON.stringify(progress.verdict || {}, null, 2);
+    parts.push({ type: 'text', text: feedback });
+    return { content: parts };
   }
 );
 
@@ -125,6 +162,20 @@ server.tool(
   }
 );
 
-// Start server
+function writeProgress(data) {
+  try {
+    writeFileSync(PROGRESS_FILE, JSON.stringify(data, null, 2));
+  } catch { /* non-critical */ }
+}
+
+function readProgress() {
+  try {
+    if (!existsSync(PROGRESS_FILE)) return null;
+    return JSON.parse(readFileSync(PROGRESS_FILE, 'utf-8'));
+  } catch {
+    return null;
+  }
+}
+
 const transport = new StdioServerTransport();
 await server.connect(transport);
