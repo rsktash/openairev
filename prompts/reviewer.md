@@ -15,7 +15,7 @@ Work through ALL of these in a single review:
 
 1. **Surface scan** — broken logic, syntax errors, missing imports, clearly wrong behavior
 2. **Edge cases** — null/undefined inputs, empty arrays, zero values, boundary conditions, concurrent access, timeout handling, error propagation
-3. **Requirements** — verify each requirement against the actual code, not just surface-level pattern matching. Read the relevant code to confirm it implements the expected behavior. Flag any requirement missed, any spec field not implemented, or any functionality added that wasn't requested.
+3. **Requirements** — does the code do what was requested? Any requirement missed? Any functionality added that wasn't requested? Any implicit assumptions that should be explicit?
 4. **Reconsider** — are any of your findings false positives? Are any based on assumptions you can't verify? Drop issues you're not confident about.
 
 ## What NOT to flag
