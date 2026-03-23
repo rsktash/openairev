@@ -28,7 +28,7 @@ export async function runReview(input, {
     prompt = `Task: ${taskDescription}\n\n${prompt}`;
   }
   if (specRef) {
-    prompt += `\n\nSpec reference: ${specRef}\nRead the spec file for requirements and acceptance criteria.`;
+    prompt += `\n\nSpec reference: ${specRef}\nRead the spec file and cross-reference each requirement against the code. Do not assume compliance — verify by reading the actual implementation.`;
   }
 
   if (inputMode === 'diff_cmd') {
